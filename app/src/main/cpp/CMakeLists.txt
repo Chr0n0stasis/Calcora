@@ -77,6 +77,8 @@ target_compile_definitions(giac_core PRIVATE
 target_compile_options(giac_core PRIVATE
         $<$<CONFIG:Debug>:-O2>
         $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-ffunction-sections>
+        $<$<CONFIG:Release>:-fdata-sections>
         -fPIC
         -fno-strict-aliasing
         -Wno-deprecated
@@ -89,7 +91,12 @@ target_compile_options(giac_core PRIVATE
 
 add_library(calcora SHARED native-lib.cpp)
 
-target_compile_options(calcora PRIVATE $<$<CONFIG:Debug>:-O2> $<$<CONFIG:Release>:-O3>)
+target_compile_options(calcora PRIVATE
+        $<$<CONFIG:Debug>:-O2>
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:Release>:-ffunction-sections>
+        $<$<CONFIG:Release>:-fdata-sections>)
+target_link_options(calcora PRIVATE $<$<CONFIG:Release>:-Wl,--gc-sections>)
 target_compile_definitions(calcora PRIVATE
         CALCULATORPLUS_GIAC_SOURCE="${GIAC_SOURCE_DIR}"
         CALCULATORPLUS_WITH_GIAC=1

@@ -1,5 +1,7 @@
 package dev.libchara.calcora.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -18,14 +20,17 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import dev.libchara.calcora.BuildConfig
 import dev.libchara.calcora.R
 import dev.libchara.calcora.data.AngleUnit
 import dev.libchara.calcora.data.AppLanguage
 import dev.libchara.calcora.data.AppSettings
 import dev.libchara.calcora.data.ThemeMode
+import dev.libchara.calcora.data.UpdateCheckResult
 import dev.libchara.calcora.engine.EvalMode
 import kotlin.math.roundToInt
 
@@ -35,8 +40,22 @@ fun SettingsScreen(
     settings: AppSettings,
     onSettingsChange: (AppSettings) -> Unit,
     onClearHistory: () -> Unit,
-    onResetSession: () -> Unit
+    onResetSession: () -> Unit,
+    updateResult: UpdateCheckResult?,
+    checkingUpdate: Boolean,
+    onCheckUpdate: () -> Unit
 ) {
+    val context = LocalContext.current
+
+    fun openReleasePage() {
+        val pageUrl = when (val result = updateResult) {
+            is UpdateCheckResult.UpdateAvailable -> result.release.pageUrl
+            is UpdateCheckResult.UpToDate -> result.release.pageUrl
+            else -> "https://github.com/${BuildConfig.GITHUB_REPO}/releases"
+        }
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pageUrl)))
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(contentPadding).padding(16.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -109,11 +128,42 @@ fun SettingsScreen(
             Slider(value = settings.historyLimit.toFloat(), onValueChange = { onSettingsChange(settings.copy(historyLimit = it.roundToInt().coerceIn(20, 200))) }, valueRange = 20f..200f, steps = 17)
         }
 
-        SettingsCard(stringResource(R.string.settings_about), subtitle = "v0.2.0") {
-            Text(stringResource(R.string.about_text), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingsCard(stringResource(R.string.settings_actions)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 Button(onClick = onResetSession, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.settings_reset_session)) }
                 Button(onClick = onClearHistory, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.settings_clear_history)) }
+            }
+        }
+
+        SettingsCard(stringResource(R.string.settings_about), subtitle = "v${BuildConfig.VERSION_NAME}") {
+            Text(stringResource(R.string.about_text), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            when (val result = updateResult) {
+                is UpdateCheckResult.UpdateAvailable -> {
+                    Text(stringResource(R.string.settings_update_available, result.release.version), color = MaterialTheme.colorScheme.primary)
+                }
+                is UpdateCheckResult.UpToDate -> {
+                    Text(stringResource(R.string.settings_update_latest, result.release.version), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.settings_update_current), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                is UpdateCheckResult.Failed -> {
+                    Text(stringResource(R.string.settings_update_failed, result.message), color = MaterialTheme.colorScheme.error)
+                }
+                null -> Unit
+            }
+            if (checkingUpdate) {
+                Text(stringResource(R.string.settings_update_checking), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onCheckUpdate,
+                    enabled = !checkingUpdate,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(stringResource(R.string.settings_check_update))
+                }
+                Button(onClick = ::openReleasePage, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_open_release))
+                }
             }
         }
     }

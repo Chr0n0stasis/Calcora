@@ -17,8 +17,10 @@
 #include <cstring>
 
 
+#include <atomic>
 #include <iomanip>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -28,7 +30,8 @@ namespace {
 
 std::map<std::string, double> variables;
 std::map<std::string, std::string> functions;
-bool interrupted = false;
+std::atomic_bool interrupted{false};
+std::mutex engine_mutex;
 
 #if CALCULATORPLUS_WITH_GIAC
 giac::context *giac_context = nullptr;
@@ -302,7 +305,7 @@ void ensure_giac() {
 
 std::string evaluate_with_giac(const std::string &expr, const std::string &mode) {
     try {
-        if (interrupted) return make_result("", "", "Evaluation interrupted");
+        if (interrupted.load()) return make_result("", "", "Evaluation interrupted");
         ensure_giac();
         giac::gen parsed(expr, giac_context);
         giac::gen evaluated = giac::protecteval(parsed, giac::DEFAULT_EVAL_LEVEL, giac_context);
@@ -570,7 +573,7 @@ std::string evaluate(const std::string &expr, const std::string &mode) {
     return evaluate_with_giac(expr, mode);
 #else
     try {
-        if (interrupted) return make_result("", "", "Evaluation interrupted");
+        if (interrupted.load()) return make_result("", "", "Evaluation interrupted");
         std::string symbolic;
         std::string numeric;
         for (const auto &statement: split_statements(expr)) {
@@ -588,7 +591,8 @@ std::string evaluate(const std::string &expr, const std::string &mode) {
 std::string jstring_to_string(JNIEnv *env, jstring value) {
     if (!value) return "";
     const char *chars = env->GetStringUTFChars(value, nullptr);
-    std::string result(chars ? chars : "");
+    if (!chars) return "";
+    std::string result(chars);
     env->ReleaseStringUTFChars(value, chars);
     return result;
 }
@@ -603,6 +607,7 @@ jstring string_to_jstring(JNIEnv *env, const std::string &value) {
 extern "C" JNIEXPORT void JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativeSetLanguage(
     JNIEnv *, jobject, jint code) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
 #if CALCULATORPLUS_WITH_GIAC
     ensure_giac();
     if (code > 0) {
@@ -613,6 +618,7 @@ Java_dev_libchara_calcora_engine_GiacEngine_nativeSetLanguage(
 
 extern "C" JNIEXPORT void JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativeInit(JNIEnv *, jobject) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
 #if CALCULATORPLUS_WITH_GIAC
     ensure_giac();
     // Default to English on init
@@ -620,21 +626,24 @@ Java_dev_libchara_calcora_engine_GiacEngine_nativeInit(JNIEnv *, jobject) {
 #endif
     variables.try_emplace("pi", M_PI);
     variables.try_emplace("e", M_E);
-    interrupted = false;
+    interrupted.store(false);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativeEvaluate(JNIEnv *env, jobject, jstring expr, jstring mode) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
     return string_to_jstring(env, evaluate(jstring_to_string(env, expr), jstring_to_string(env, mode)));
 }
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativeEvaluateRawXcas(JNIEnv *env, jobject, jstring expr) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
     return string_to_jstring(env, evaluate(jstring_to_string(env, expr), "RawXcas"));
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativeReset(JNIEnv *, jobject) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
 #if CALCULATORPLUS_WITH_GIAC
     delete giac_context;
     giac_context = new giac::context();
@@ -643,18 +652,19 @@ Java_dev_libchara_calcora_engine_GiacEngine_nativeReset(JNIEnv *, jobject) {
     functions.clear();
     variables["pi"] = M_PI;
     variables["e"] = M_E;
-    interrupted = false;
+    interrupted.store(false);
 }
 
 extern "C" JNIEXPORT void JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativeInterrupt(JNIEnv *, jobject) {
-    interrupted = true;
+    interrupted.store(true);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativePlotSample(
     JNIEnv *env, jobject, jstring expr, jstring varName, jdouble xmin, jdouble xmax, jint samples) {
 #if CALCULATORPLUS_WITH_GIAC
+    std::lock_guard<std::mutex> lock(engine_mutex);
     try {
         ensure_giac();
         std::string expr_str = jstring_to_string(env, expr);
@@ -711,6 +721,7 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativeHelp(
     JNIEnv *env, jobject, jstring command) {
 #if CALCULATORPLUS_WITH_GIAC
+    std::lock_guard<std::mutex> lock(engine_mutex);
     try {
         ensure_giac();
         std::string cmd = jstring_to_string(env, command);
@@ -740,7 +751,9 @@ extern "C" JNIEXPORT void JNICALL
 Java_dev_libchara_calcora_engine_GiacEngine_nativeSetHelpDir(
     JNIEnv *env, jobject, jstring path) {
 #if CALCULATORPLUS_WITH_GIAC
+    std::lock_guard<std::mutex> lock(engine_mutex);
     const char *p = env->GetStringUTFChars(path, nullptr);
+    if (!p) return;
     setenv("XCAS_ROOT", p, 1);
     env->ReleaseStringUTFChars(path, p);
 #endif

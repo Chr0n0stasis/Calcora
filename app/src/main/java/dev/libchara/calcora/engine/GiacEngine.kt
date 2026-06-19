@@ -3,16 +3,19 @@ package dev.libchara.calcora.engine
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 object GiacEngine {
+    @Volatile
     private var loaded = false
     private var appContext: android.content.Context? = null
 
     fun initialize(context: android.content.Context) {
-        appContext = context
+        appContext = context.applicationContext
         init()
     }
 
+    @Synchronized
     fun init(): Boolean {
         if (loaded) return true
         return runCatching {
@@ -20,19 +23,20 @@ object GiacEngine {
             nativeInit()
             appContext?.let { ctx ->
                 try {
-                    // Copy help files for giac native help system
-                    val helpDir = java.io.File(ctx.filesDir, "giac_help")
+                    val helpDir = File(ctx.filesDir, "giac_help")
                     helpDir.mkdirs()
-                    val zhDir = java.io.File(helpDir, "zh")
+                    val zhDir = File(helpDir, "zh")
                     zhDir.mkdirs()
-for (pair in listOf("aide_cas" to helpDir, "zh/aide_cas" to zhDir)) {
-                        val outFile = java.io.File(pair.second, "aide_cas")
+                    for ((assetName, targetDir) in listOf("aide_cas" to helpDir, "zh/aide_cas" to zhDir)) {
+                        val outFile = File(targetDir, "aide_cas")
                         if (!outFile.exists()) {
-                            ctx.assets.open(pair.first).use { it.copyTo(outFile.outputStream()) }
+                            ctx.assets.open(assetName).use { input ->
+                                outFile.outputStream().use { output -> input.copyTo(output) }
+                            }
                         }
                     }
                     nativeSetHelpDir(helpDir.absolutePath + "/")
-                    HelpParser.loadFromStream(ctx.assets.open("aide_cas"))
+                    ctx.assets.open("aide_cas").use { HelpParser.loadFromStream(it) }
                 } catch (_: Exception) { }
             }
             loaded = true
@@ -139,7 +143,7 @@ for (pair in listOf("aide_cas" to helpDir, "zh/aide_cas" to zhDir)) {
         val lang = when (code) { 8 -> 8; else -> 2 }
         HelpParser.reloadForLanguage(lang)
         appContext?.let { ctx ->
-            try { HelpParser.loadFromStream(ctx.assets.open("aide_cas")) } catch (_: Exception) {}
+            try { ctx.assets.open("aide_cas").use { HelpParser.loadFromStream(it) } } catch (_: Exception) {}
         }
     }
 

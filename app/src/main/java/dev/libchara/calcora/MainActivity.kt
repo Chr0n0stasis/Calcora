@@ -3,6 +3,7 @@ package dev.libchara.calcora
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +19,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -27,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateListOf
@@ -41,8 +45,11 @@ import dev.libchara.calcora.data.AppLanguage
 import dev.libchara.calcora.data.AppSettings
 import dev.libchara.calcora.data.HistoryEntry
 import dev.libchara.calcora.data.HistoryStore
+import dev.libchara.calcora.data.ReleaseInfo
 import dev.libchara.calcora.data.SettingsStore
 import dev.libchara.calcora.data.ThemeMode
+import dev.libchara.calcora.data.UpdateCheckResult
+import dev.libchara.calcora.data.UpdateChecker
 import dev.libchara.calcora.engine.GiacEngine
 import dev.libchara.calcora.ScriptActivity
 import dev.libchara.calcora.ui.HelpScreen
@@ -52,6 +59,7 @@ import dev.libchara.calcora.ui.MainCalculatorScreen
 import dev.libchara.calcora.ui.PlotOverlay
 import dev.libchara.calcora.ui.SettingsScreen
 import dev.libchara.calcora.ui.theme.CalcoraTheme
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -76,6 +84,7 @@ class MainActivity : ComponentActivity() {
 private fun CalcoraApp(initialDestination: Destination? = null) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { GiacEngine.initialize(context) }
+    val scope = rememberCoroutineScope()
     val settingsStore = remember { SettingsStore(context) }
     val historyStore = remember { HistoryStore(context) }
     var settings by remember { mutableStateOf(settingsStore.load()) }
@@ -88,7 +97,30 @@ private fun CalcoraApp(initialDestination: Destination? = null) {
     var calcInput by remember { mutableStateOf(TextFieldValue("")) }
     var calcResult by remember { mutableStateOf<dev.libchara.calcora.engine.CalcResult?>(null) }
     var calcMode by remember { mutableStateOf(settings.defaultEvalMode) }
+    var updateResult by remember { mutableStateOf<UpdateCheckResult?>(null) }
+    var checkingUpdate by remember { mutableStateOf(false) }
+    var updateDialogRelease by remember { mutableStateOf<ReleaseInfo?>(null) }
     val calcHistoryLines = remember { mutableStateListOf<HistoryLine>() }
+
+    fun openReleasePage(release: ReleaseInfo) {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.pageUrl)))
+    }
+
+    fun checkForUpdates(showDialogOnUpdate: Boolean = false) {
+        if (checkingUpdate) return
+        checkingUpdate = true
+        updateResult = null
+        scope.launch {
+            val result = UpdateChecker.checkLatestRelease()
+            updateResult = result
+            if (showDialogOnUpdate && result is UpdateCheckResult.UpdateAvailable) {
+                updateDialogRelease = result.release
+            }
+            checkingUpdate = false
+        }
+    }
+
+    LaunchedEffect(Unit) { checkForUpdates(showDialogOnUpdate = true) }
 
     LaunchedEffect(settings.language) {
         val code = when (settings.language) {
@@ -154,12 +186,35 @@ private fun CalcoraApp(initialDestination: Destination? = null) {
                                 }
                             },
                             onClearHistory = { historyStore.clear(); history = emptyList() },
-                            onResetSession = { GiacEngine.resetSession() })
+                            onResetSession = { GiacEngine.resetSession() },
+                            updateResult = updateResult,
+                            checkingUpdate = checkingUpdate,
+                            onCheckUpdate = { checkForUpdates() })
                     }
                 }
             }
 
             PlotOverlay(plotData = plotData.orEmpty(), visible = plotData != null, onDismiss = { plotData = null })
+            updateDialogRelease?.let { release ->
+                AlertDialog(
+                    onDismissRequest = { updateDialogRelease = null },
+                    title = { Text(stringResource(R.string.update_dialog_title)) },
+                    text = { Text(stringResource(R.string.update_dialog_message, release.version)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            updateDialogRelease = null
+                            openReleasePage(release)
+                        }) {
+                            Text(stringResource(R.string.settings_open_release))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { updateDialogRelease = null }) {
+                            Text(stringResource(R.string.update_dialog_later))
+                        }
+                    }
+                )
+            }
         }
     }
 }

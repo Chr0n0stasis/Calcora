@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -95,6 +94,12 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
 
+private val CALC_KEYWORDS = setOf(
+    "if", "then", "else", "for", "from", "to", "do", "od", "step", "in",
+    "while", "repeat", "until", "break", "local", "return", "function",
+    "begin", "end", "assume", "purge"
+)
+
 // Lightweight syntax highlighter for Calc input using Monet theme colors
 private class CalcSyntaxHighlighter(
     private val numColor: androidx.compose.ui.graphics.Color,
@@ -122,7 +127,7 @@ private class CalcSyntaxHighlighter(
                     val start = i
                     while (i < raw.length && (raw[i].isLetterOrDigit() || raw[i] == '_')) i++
                     val w = raw.substring(start, i)
-                    val color = if (w in setOf("if", "then", "else", "for", "from", "to", "do", "od", "step", "in", "while", "repeat", "until", "break", "local", "return", "function", "begin", "end", "assume", "purge")) kwColor else funcColor
+                    val color = if (w in CALC_KEYWORDS) kwColor else funcColor
                     withStyle(SpanStyle(color = color)) { append(w) }
                     continue
                 }
@@ -160,7 +165,6 @@ fun MainCalculatorScreen(
     var functionsExpanded by remember { mutableStateOf(false) }
     var varsExpanded by remember { mutableStateOf(false) }
     var fxExpanded by remember { mutableStateOf(false) }
-    var lastResult by remember { mutableStateOf("") }
 
     var evaluating by remember { mutableStateOf(false) }
     var showSpinner by remember { mutableStateOf(false) }
@@ -251,8 +255,6 @@ LaunchedEffect(restoreExpression) {
                 GiacEngine.evaluate(text, mode)
             }
             spinnerJob.cancel()
-            // Push current expression + its result to history
-            lastResult = trunc(result?.primary.orEmpty())
             calcHistory.add(HistoryLine(text, evaluated))
             if (calcHistory.size > 8) calcHistory.removeAt(0)
             listState.animateScrollToItem(maxOf(0, calcHistory.size - 1))
@@ -497,14 +499,7 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                 .padding(bottom = 6.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            val keyRows = listOf(
-                listOf(KeySpec("AC", KeyRole.Clear), KeySpec("\u232B", KeyRole.Backspace), KeySpec("%", KeyRole.Operator), KeySpec("\u00F7", KeyRole.Operator)),
-                listOf(KeySpec("7", KeyRole.Number), KeySpec("8", KeyRole.Number), KeySpec("9", KeyRole.Number), KeySpec("\u00D7", KeyRole.Operator)),
-                listOf(KeySpec("4", KeyRole.Number), KeySpec("5", KeyRole.Number), KeySpec("6", KeyRole.Number), KeySpec("\u2212", KeyRole.Operator)),
-                listOf(KeySpec("1", KeyRole.Number), KeySpec("2", KeyRole.Number), KeySpec("3", KeyRole.Number), KeySpec("+", KeyRole.Operator)),
-                listOf(KeySpec("0", KeyRole.Number), KeySpec(".", KeyRole.Number), KeySpec(",", KeyRole.Number), KeySpec("EXE", KeyRole.Equals))
-            )
-            keyRows.forEach { row ->
+            CALCULATOR_KEY_ROWS.forEach { row ->
                 Row(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
@@ -515,7 +510,7 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                             label = key.label, role = key.role,
                             onClick = {
                                 when (key.label) {
-                                    "AC" -> { input = TextFieldValue(""); result = null; lastResult = ""; calcHistory.clear(); onInputChange(TextFieldValue("")); onResultChange(null) }
+                                    "AC" -> { input = TextFieldValue(""); result = null; calcHistory.clear(); onInputChange(TextFieldValue("")); onResultChange(null) }
                                     "⌫" -> {
                                         val cursor = input.selection.start.coerceAtLeast(0)
                                         if (cursor > 0) {
@@ -575,6 +570,32 @@ data class HistoryLine(
 private enum class KeyRole { Number, Operator, Equals, Clear, Backspace }
 private data class KeySpec(val label: String, val role: KeyRole)
 
+private val CALCULATOR_KEY_ROWS = listOf(
+    listOf(KeySpec("AC", KeyRole.Clear), KeySpec("\u232B", KeyRole.Backspace), KeySpec("%", KeyRole.Operator), KeySpec("\u00F7", KeyRole.Operator)),
+    listOf(KeySpec("7", KeyRole.Number), KeySpec("8", KeyRole.Number), KeySpec("9", KeyRole.Number), KeySpec("\u00D7", KeyRole.Operator)),
+    listOf(KeySpec("4", KeyRole.Number), KeySpec("5", KeyRole.Number), KeySpec("6", KeyRole.Number), KeySpec("\u2212", KeyRole.Operator)),
+    listOf(KeySpec("1", KeyRole.Number), KeySpec("2", KeyRole.Number), KeySpec("3", KeyRole.Number), KeySpec("+", KeyRole.Operator)),
+    listOf(KeySpec("0", KeyRole.Number), KeySpec(".", KeyRole.Number), KeySpec(",", KeyRole.Number), KeySpec("EXE", KeyRole.Equals))
+)
+
+private val VAR_PANEL_ITEMS = listOf("x", "y", "z", "a", "b", "c", "n", "t", "k", "m", "pi", "e", ":=", ";", "(", ")", "[", "]", "{", "}", "->")
+
+private val FX_PANEL_ITEMS = listOf(
+    "sin(\u25A1)" to "sin", "cos(\u25A1)" to "cos", "tan(\u25A1)" to "tan",
+    "asin(\u25A1)" to "asin", "acos(\u25A1)" to "acos", "atan(\u25A1)" to "atan",
+    "ln(\u25A1)" to "ln", "log(\u25A1)" to "log", "sqrt(\u25A1)" to "sqrt",
+    "abs(\u25A1)" to "abs", "exp(\u25A1)" to "exp", "^\u25A1" to "^"
+)
+
+private val FUNCTIONS_PANEL_ITEMS = listOf(
+    "simplify(\u25A1)", "factor(\u25A1)", "expand(\u25A1)", "normal(\u25A1)", "solve(\u25A1=0,x)", "subst(\u25A1,x=\u25A1)",
+    "diff(\u25A1,x)", "integrate(\u25A1,x)", "limit(\u25A1,x=0)", "sum(\u25A1,k,1,n)",
+    "det(\u25A1)", "inv(\u25A1)", "transpose(\u25A1)", "rank(\u25A1)",
+    "ifactor(\u25A1)", "gcd(\u25A1,\u25A1)", "lcm(\u25A1,\u25A1)",
+    "plot(\u25A1)", "plot3d(\u25A1)", "plotparam(\u25A1)", "plotlist(\u25A1)", "plotseq(\u25A1)", "plot(\u25A1,x=-5..5)",
+    "makelist(\u25A1)", "makemat(\u25A1)", "fft(\u25A1)", "ifft(\u25A1)"
+)
+
 @Composable
 private fun CalculatorKey(label: String, role: KeyRole, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
@@ -617,9 +638,8 @@ private fun CalculatorKey(label: String, role: KeyRole, onClick: () -> Unit, mod
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun VarPanel(onInsert: (String) -> Unit) {
-    val vars = listOf("x", "y", "z", "a", "b", "c", "n", "t", "k", "m", "pi", "e", ":=", ";", "(", ")", "[", "]", "{", "}", "->")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        vars.forEach { v ->
+        VAR_PANEL_ITEMS.forEach { v ->
             AssistChip(onClick = { onInsert(v) }, label = { Text(v, fontSize = 13.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium) }, shape = RoundedCornerShape(12.dp))
         }
     }
@@ -628,14 +648,8 @@ private fun VarPanel(onInsert: (String) -> Unit) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FxPanel(onInsert: (String) -> Unit) {
-    val funcs = listOf(
-        "sin(\u25A1)" to "sin", "cos(\u25A1)" to "cos", "tan(\u25A1)" to "tan",
-        "asin(\u25A1)" to "asin", "acos(\u25A1)" to "acos", "atan(\u25A1)" to "atan",
-        "ln(\u25A1)" to "ln", "log(\u25A1)" to "log", "sqrt(\u25A1)" to "sqrt",
-        "abs(\u25A1)" to "abs", "exp(\u25A1)" to "exp", "^\u25A1" to "^"
-    )
     FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        funcs.forEach { (template, _) ->
+        FX_PANEL_ITEMS.forEach { (template, _) ->
             val short = template.replace("\u25A1", "")
             AssistChip(onClick = { onInsert(template) }, label = { Text(short, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }, shape = RoundedCornerShape(12.dp))
         }
@@ -645,16 +659,8 @@ private fun FxPanel(onInsert: (String) -> Unit) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FunctionsPanel(onInsert: (String) -> Unit) {
-    val chips = listOf(
-        "simplify(\u25A1)", "factor(\u25A1)", "expand(\u25A1)", "normal(\u25A1)", "solve(\u25A1=0,x)", "subst(\u25A1,x=\u25A1)",
-        "diff(\u25A1,x)", "integrate(\u25A1,x)", "limit(\u25A1,x=0)", "sum(\u25A1,k,1,n)",
-        "det(\u25A1)", "inv(\u25A1)", "transpose(\u25A1)", "rank(\u25A1)",
-        "ifactor(\u25A1)", "gcd(\u25A1,\u25A1)", "lcm(\u25A1,\u25A1)",
-        "plot(\u25A1)", "plot3d(\u25A1)", "plotparam(\u25A1)", "plotlist(\u25A1)", "plotseq(\u25A1)", "plot(\u25A1,x=-5..5)",
-        "makelist(\u25A1)", "makemat(\u25A1)", "fft(\u25A1)", "ifft(\u25A1)"
-    )
     FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        chips.forEach { template ->
+        FUNCTIONS_PANEL_ITEMS.forEach { template ->
             val short = template.replace("\u25A1", "").take(18)
             AssistChip(onClick = { onInsert(template) }, label = { Text(short, fontSize = 11.sp, fontFamily = FontFamily.Monospace) }, shape = RoundedCornerShape(12.dp))
         }

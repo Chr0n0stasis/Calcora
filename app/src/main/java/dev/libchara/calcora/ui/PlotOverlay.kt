@@ -60,7 +60,14 @@ private data class PlotItem(
     val type: String, val variable: String, val xminVal: Double, val xmaxVal: Double,
     val points: List<Pair<Double, Double>>,
     val var1: String, val var2: String, val yminVal: Double, val ymaxVal: Double,
-    val nx: Int, val ny: Int, val zGrid: List<List<Double?>>
+    val nx: Int, val ny: Int, val zGrid: List<List<Double?>>,
+    val surfaceFaces: List<SurfaceFace>, val zMin: Double, val zMax: Double
+)
+
+private data class SurfaceFace(
+    val x0: Double, val y0: Double, val x1: Double, val y1: Double,
+    val z00: Double, val z10: Double, val z01: Double, val z11: Double,
+    val cz: Double
 )
 
 @Composable
@@ -99,15 +106,73 @@ private fun parsePlotData(json: String): List<PlotItem> {
                         })
                     }
                 } else emptyList()
+                val xmin = obj.optDouble("xmin", 0.0)
+                val xmax = obj.optDouble("xmax", 1.0)
+                val ymin = obj.optDouble("ymin", 0.0)
+                val ymax = obj.optDouble("ymax", 1.0)
+                val nx = obj.optInt("nx", 0)
+                val ny = obj.optInt("ny", 0)
+                val zBounds = computeZBounds(zGrid)
                 add(PlotItem(type = type, variable = obj.optString("var", "x"),
-                    xminVal = obj.optDouble("xmin", 0.0), xmaxVal = obj.optDouble("xmax", 1.0),
+                    xminVal = xmin, xmaxVal = xmax,
                     points = pts,
                     var1 = obj.optString("var1", "x"), var2 = obj.optString("var2", "y"),
-                    yminVal = obj.optDouble("ymin", 0.0), ymaxVal = obj.optDouble("ymax", 1.0),
-                    nx = obj.optInt("nx", 0), ny = obj.optInt("ny", 0), zGrid = zGrid))
+                    yminVal = ymin, ymaxVal = ymax,
+                    nx = nx, ny = ny, zGrid = zGrid,
+                    surfaceFaces = buildSurfaceFaces(xmin, xmax, ymin, ymax, nx, ny, zGrid),
+                    zMin = zBounds.first, zMax = zBounds.second))
             }
         }
     }.getOrDefault(emptyList())
+}
+
+private fun computeZBounds(zGrid: List<List<Double?>>): Pair<Double, Double> {
+    var zMin = Double.MAX_VALUE
+    var zMax = -Double.MAX_VALUE
+    for (row in zGrid) {
+        for (z in row) {
+            if (z != null) {
+                if (z < zMin) zMin = z
+                if (z > zMax) zMax = z
+            }
+        }
+    }
+    return if (zMin == Double.MAX_VALUE) -5.0 to 5.0 else zMin to zMax
+}
+
+private fun buildSurfaceFaces(
+    xmin: Double,
+    xmax: Double,
+    ymin: Double,
+    ymax: Double,
+    nx: Int,
+    ny: Int,
+    zGrid: List<List<Double?>>
+): List<SurfaceFace> {
+    if (nx < 2 || ny < 2) return emptyList()
+    val xRange = xmax - xmin
+    val yRange = ymax - ymin
+    if (xRange <= 0 || yRange <= 0) return emptyList()
+
+    fun zAt(ix: Int, iy: Int): Double = zGrid.getOrNull(ix)?.getOrNull(iy) ?: Double.NaN
+
+    return buildList {
+        for (ix in 0 until nx - 1) {
+            for (iy in 0 until ny - 1) {
+                val z00 = zAt(ix, iy)
+                val z10 = zAt(ix + 1, iy)
+                val z01 = zAt(ix, iy + 1)
+                val z11 = zAt(ix + 1, iy + 1)
+                if (!z00.isFinite() || !z10.isFinite() || !z01.isFinite() || !z11.isFinite()) continue
+                val x0 = xmin + ix.toDouble() / (nx - 1) * xRange
+                val y0 = ymin + iy.toDouble() / (ny - 1) * yRange
+                val x1 = xmin + (ix + 1).toDouble() / (nx - 1) * xRange
+                val y1 = ymin + (iy + 1).toDouble() / (ny - 1) * yRange
+                add(SurfaceFace(x0, y0, x1, y1, z00, z10, z01, z11, (z00 + z10 + z01 + z11) / 4.0))
+            }
+        }
+        sortByDescending { it.cz }
+    }
 }
 
 @Composable
@@ -143,7 +208,7 @@ private fun PlotContent(plotData: String, onDismiss: () -> Unit) {
         ) {
             Column(modifier = Modifier.padding(8.dp).weight(1f)) {
                 Text(label, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium), color = colors.onBackground)
-                Text(if (is3D) "drag to rotate \u00B7 pinch to zoom" else stringResource(R.string.plot_hint), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                Text(if (is3D) stringResource(R.string.plot_hint_3d) else stringResource(R.string.plot_hint), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { showGrid = !showGrid }) { Text(if (showGrid) stringResource(R.string.btn_grid) else stringResource(R.string.btn_no_grid), fontSize = 13.sp) }
@@ -200,7 +265,7 @@ private fun PlotContent(plotData: String, onDismiss: () -> Unit) {
 
             items.forEachIndexed { ci, item ->
                 when (item.type) {
-                    "surface3d" -> drawSurface3D(item, origin, scale, rotX, rotZ, curveColors[ci % curveColors.size])
+                    "surface3d" -> drawSurface3D(item, origin, scale, rotX, rotZ, showGrid, curveColors[ci % curveColors.size])
                     "scatter" -> drawScatter(item, origin, scale, curveColors[ci % curveColors.size])
                     else -> drawCurve(item, origin, scale, curveColors[ci % curveColors.size])
                 }
@@ -256,7 +321,7 @@ private fun DrawScope.drawScatter(item: PlotItem, origin: Offset, scale: Float, 
     }
 }
 
-private fun DrawScope.drawSurface3D(item: PlotItem, origin: Offset, scale: Float, rx: Float, rz: Float, color: Color) {
+private fun DrawScope.drawSurface3D(item: PlotItem, origin: Offset, scale: Float, rx: Float, rz: Float, showGrid: Boolean, color: Color) {
     if (item.zGrid.isEmpty() || item.nx < 2 || item.ny < 2) return
     val nx = item.nx; val ny = item.ny
     val xRange = item.xmaxVal - item.xminVal
@@ -265,51 +330,33 @@ private fun DrawScope.drawSurface3D(item: PlotItem, origin: Offset, scale: Float
 
     fun zAt(ix: Int, iy: Int): Double = item.zGrid.getOrNull(ix)?.getOrNull(iy) ?: Double.NaN
 
+    val cosZ = cos(rz)
+    val sinZ = sin(rz)
+    val cosX = cos(rx)
+    val sinX = sin(rx)
+
     // Project 3D point to 2D screen
     fun proj(x3: Double, y3: Double, z3: Double): Offset {
-        val cosZ = cos(rz); val sinZ = sin(rz)
-        val cosX = cos(rx); val sinX = sin(rx)
         val x1 = x3 * cosZ - y3 * sinZ
         val y1 = x3 * sinZ + y3 * cosZ
         val y2f = (y1 * cosX - z3 * sinX).toFloat()
         return Offset(origin.x + x1.toFloat() * scale, origin.y - y2f * scale)
     }
 
-    // Compute z range
-    var zMin = Double.MAX_VALUE; var zMax = -Double.MAX_VALUE
-    for (r in item.zGrid) for (z in r) { if (z != null) { if (z < zMin) zMin = z; if (z > zMax) zMax = z } }
-    if (zMin.isInfinite()) { zMin = -5.0; zMax = 5.0 }
+    val zMin = item.zMin
+    val zMax = item.zMax
     val zSpan = if (zMax > zMin) zMax - zMin else 1.0
 
-    // ---- Filled faces: painter's algorithm (back to front) ----
-    data class Quad(val ix: Int, val iy: Int, val cz: Double)
-    val quads = mutableListOf<Quad>()
-    for (ix in 0 until nx - 1) {
-        for (iy in 0 until ny - 1) {
-            val cz = (zAt(ix, iy) + zAt(ix + 1, iy) + zAt(ix, iy + 1) + zAt(ix + 1, iy + 1)) / 4.0
-            if (cz.isFinite()) quads.add(Quad(ix, iy, cz))
-        }
-    }
-    quads.sortByDescending { it.cz } // farthest first for semi-transparent overlap
-
-    for (q in quads) {
-        val x3a = item.xminVal + q.ix.toDouble() / (nx - 1) * xRange
-        val y3a = item.yminVal + q.iy.toDouble() / (ny - 1) * yRange
-        val x3b = item.xminVal + (q.ix + 1).toDouble() / (nx - 1) * xRange
-        val y3b = item.yminVal + (q.iy + 1).toDouble() / (ny - 1) * yRange
-        val z00 = zAt(q.ix, q.iy); val z10 = zAt(q.ix + 1, q.iy)
-        val z01 = zAt(q.ix, q.iy + 1); val z11 = zAt(q.ix + 1, q.iy + 1)
-        if (!z00.isFinite() || !z10.isFinite() || !z01.isFinite() || !z11.isFinite()) continue
-
-        val t = ((q.cz - zMin) / zSpan).toFloat().coerceIn(0f, 1f)
+    for (face in item.surfaceFaces) {
+        val t = ((face.cz - zMin) / zSpan).toFloat().coerceIn(0f, 1f)
         val faceColor = Color(
             red = 0.15f + t * 0.4f,
             green = 0.25f + t * 0.3f,
             blue = 0.5f + t * 0.3f,
             alpha = 0.35f
         )
-        val p00 = proj(x3a, y3a, z00); val p10 = proj(x3b, y3a, z10)
-        val p01 = proj(x3a, y3b, z01); val p11 = proj(x3b, y3b, z11)
+        val p00 = proj(face.x0, face.y0, face.z00); val p10 = proj(face.x1, face.y0, face.z10)
+        val p01 = proj(face.x0, face.y1, face.z01); val p11 = proj(face.x1, face.y1, face.z11)
         val path = Path().apply {
             moveTo(p00.x, p00.y); lineTo(p10.x, p10.y); lineTo(p11.x, p11.y); lineTo(p01.x, p01.y)
             close()
@@ -317,26 +364,28 @@ private fun DrawScope.drawSurface3D(item: PlotItem, origin: Offset, scale: Float
         drawPath(path, faceColor)
     }
 
-    // ---- Wireframe overlay ----
-    for (ix in 0 until nx - 1) {
-        for (iy in 0 until ny) {
-            val z1 = zAt(ix, iy); val z2 = zAt(ix + 1, iy)
-            if (z1.isFinite() && z2.isFinite()) {
-                val x3a = item.xminVal + ix.toDouble() / (nx - 1) * xRange
-                val y3a = item.yminVal + iy.toDouble() / (ny - 1) * yRange
-                val x3b = item.xminVal + (ix + 1).toDouble() / (nx - 1) * xRange
-                drawLine(color.copy(alpha = 0.5f), proj(x3a, y3a, z1), proj(x3b, y3a, z2), strokeWidth = 1f)
+    if (showGrid) {
+        // ---- Wireframe overlay ----
+        for (ix in 0 until nx - 1) {
+            for (iy in 0 until ny) {
+                val z1 = zAt(ix, iy); val z2 = zAt(ix + 1, iy)
+                if (z1.isFinite() && z2.isFinite()) {
+                    val x3a = item.xminVal + ix.toDouble() / (nx - 1) * xRange
+                    val y3a = item.yminVal + iy.toDouble() / (ny - 1) * yRange
+                    val x3b = item.xminVal + (ix + 1).toDouble() / (nx - 1) * xRange
+                    drawLine(color.copy(alpha = 0.5f), proj(x3a, y3a, z1), proj(x3b, y3a, z2), strokeWidth = 1f)
+                }
             }
         }
-    }
-    for (ix in 0 until nx) {
-        for (iy in 0 until ny - 1) {
-            val z1 = zAt(ix, iy); val z2 = zAt(ix, iy + 1)
-            if (z1.isFinite() && z2.isFinite()) {
-                val x3a = item.xminVal + ix.toDouble() / (nx - 1) * xRange
-                val y3a = item.yminVal + iy.toDouble() / (ny - 1) * yRange
-                val y3b = item.yminVal + (iy + 1).toDouble() / (ny - 1) * yRange
-                drawLine(color.copy(alpha = 0.5f), proj(x3a, y3a, z1), proj(x3a, y3b, z2), strokeWidth = 1f)
+        for (ix in 0 until nx) {
+            for (iy in 0 until ny - 1) {
+                val z1 = zAt(ix, iy); val z2 = zAt(ix, iy + 1)
+                if (z1.isFinite() && z2.isFinite()) {
+                    val x3a = item.xminVal + ix.toDouble() / (nx - 1) * xRange
+                    val y3a = item.yminVal + iy.toDouble() / (ny - 1) * yRange
+                    val y3b = item.yminVal + (iy + 1).toDouble() / (ny - 1) * yRange
+                    drawLine(color.copy(alpha = 0.5f), proj(x3a, y3a, z1), proj(x3a, y3b, z2), strokeWidth = 1f)
+                }
             }
         }
     }
@@ -352,15 +401,16 @@ private fun DrawScope.drawSurface3D(item: PlotItem, origin: Offset, scale: Float
     drawLine(Color.Green.copy(alpha = 0.3f), axO, proj(0.0, -axisLen * 0.5, 0.0), strokeWidth = 1f)
     drawLine(Color(0xFF79C0FF).copy(alpha = 0.3f), axO, proj(0.0, 0.0, -axisLen * 0.5), strokeWidth = 1f)
 
-    // ---- Base grid on Z=zMin plane ----
-    val gridA = 0.12f
-    val nDivs = 5
-    for (i in 0..nDivs) {
-        val t = i.toDouble() / nDivs
-        val gx = item.xminVal + t * xRange
-        val gy = item.yminVal + t * yRange
-        drawLine(Color.White.copy(alpha = gridA), proj(gx, item.yminVal, zMin), proj(gx, item.ymaxVal, zMin), strokeWidth = 0.5f)
-        drawLine(Color.White.copy(alpha = gridA), proj(item.xminVal, gy, zMin), proj(item.xmaxVal, gy, zMin), strokeWidth = 0.5f)
+    if (showGrid) {
+        // ---- Base grid on Z=zMin plane ----
+        val gridA = 0.12f
+        val nDivs = 5
+        for (i in 0..nDivs) {
+            val t = i.toDouble() / nDivs
+            val gx = item.xminVal + t * xRange
+            val gy = item.yminVal + t * yRange
+            drawLine(Color.White.copy(alpha = gridA), proj(gx, item.yminVal, zMin), proj(gx, item.ymaxVal, zMin), strokeWidth = 0.5f)
+            drawLine(Color.White.copy(alpha = gridA), proj(item.xminVal, gy, zMin), proj(item.xmaxVal, gy, zMin), strokeWidth = 0.5f)
+        }
     }
 }
-

@@ -16,8 +16,9 @@ android {
         applicationId = "dev.libchara.calcora"
         minSdk = 29
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.2.0"
+        versionCode = 5
+        versionName = "0.2.1"
+        buildConfigField("String", "GITHUB_REPO", "\"jsjsjsjsjsjsjson/Calcora\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
@@ -41,6 +42,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     externalNativeBuild {
         cmake {

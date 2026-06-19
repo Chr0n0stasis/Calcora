@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.libchara.calcora.R
 import dev.libchara.calcora.engine.GiacEngine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private data class TerminalLine(val input: String, val output: String)
 
@@ -59,26 +63,30 @@ fun CasTerminalScreen(onClose: (() -> Unit)? = null) {
     var running by remember { mutableStateOf(false) }
     var detailDialog by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     LaunchedEffect(history.size) {
         if (history.isNotEmpty()) listState.animateScrollToItem(history.size - 1)
     }
 
     fun run() {
         val cmd = input.trim()
-        if (cmd.isEmpty()) return
+        if (cmd.isEmpty() || running) return
         running = true
-        val result = GiacEngine.evaluateRawXcas(cmd)
-        val output = buildString {
-            if (result.isError) append(result.error)
-            else {
-                append(result.symbolic)
-                if (result.numeric.isNotBlank() && result.numeric != result.symbolic)
-                    append("\n").append(result.numeric)
+        scope.launch {
+            val result = withContext(Dispatchers.Default) { GiacEngine.evaluateRawXcas(cmd) }
+            val output = buildString {
+                if (result.isError) append(result.error)
+                else {
+                    append(result.symbolic)
+                    if (result.numeric.isNotBlank() && result.numeric != result.symbolic) {
+                        append("\n").append(result.numeric)
+                    }
+                }
             }
+            history = history + TerminalLine(cmd, output)
+            input = ""
+            running = false
         }
-        history = history + TerminalLine(cmd, output)
-        input = ""
-        running = false
     }
 
     Column(

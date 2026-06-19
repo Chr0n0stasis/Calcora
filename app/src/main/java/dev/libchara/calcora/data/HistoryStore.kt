@@ -19,17 +19,20 @@ data class HistoryEntry(
     val plotData: String = "",
     
 ) {
-    val formattedTime: String get() = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(timestamp))
+    val formattedTime: String by lazy(LazyThreadSafetyMode.NONE) {
+        DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(timestamp))
+    }
 }
 
 class HistoryStore(context: Context) {
     private val prefs = context.getSharedPreferences("history", Context.MODE_PRIVATE)
 
     fun load(): List<HistoryEntry> {
-        val array = JSONArray(prefs.getString(KEY, "[]"))
-        return buildList {
+        val raw = prefs.getString(KEY, "[]").orEmpty()
+        val array = runCatching { JSONArray(raw) }.getOrElse { JSONArray() }
+        return buildList(array.length()) {
             for (index in 0 until array.length()) {
-                val item = array.getJSONObject(index)
+                val item = array.optJSONObject(index) ?: continue
                 add(
                     HistoryEntry(
                         id = item.optLong("id"),
@@ -49,26 +52,28 @@ class HistoryStore(context: Context) {
 
     fun add(result: CalcResult, maxItems: Int = 64): List<HistoryEntry> {
         if (result.input.isBlank()) return load()
+        val now = System.currentTimeMillis()
         val next = HistoryEntry(
-            id = System.currentTimeMillis(),
+            id = now,
             expression = result.input,
             result = result.primary,
             numeric = result.numeric,
             mode = result.mode,
-            timestamp = System.currentTimeMillis(),
+            timestamp = now,
             isPlot = result.isPlot,
             plotData = result.plotData,
             
         )
         val updated = listOf(next) + load().filterNot { it.expression == result.input && it.result == result.primary }
-        save(updated.take(maxItems))
-        return load()
+        val limited = updated.take(maxItems)
+        save(limited)
+        return limited
     }
 
     fun remove(entry: HistoryEntry): List<HistoryEntry> {
         val updated = load().filterNot { it.id == entry.id }
         save(updated)
-        return load()
+        return updated
     }
 
     fun clear() {
