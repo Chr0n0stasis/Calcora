@@ -19,5 +19,5 @@ local.properties
 *.aab
 *.jks
 *.keystore
-.kotlin/sessions/
+.kotlin/
 app/release/
