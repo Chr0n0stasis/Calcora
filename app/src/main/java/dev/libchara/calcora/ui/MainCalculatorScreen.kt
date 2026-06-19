@@ -87,6 +87,8 @@ import dev.libchara.calcora.engine.CalcResult
 import dev.libchara.calcora.engine.EvalMode
 import dev.libchara.calcora.engine.GiacEngine
 import dev.libchara.calcora.engine.HelpParser
+import dev.libchara.calcora.engine.NaturalMathDisplay
+import dev.libchara.calcora.engine.NaturalMathFormatter
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
@@ -100,15 +102,21 @@ private val CALC_KEYWORDS = setOf(
     "begin", "end", "assume", "purge"
 )
 
-// Lightweight syntax highlighter for Calc input using Monet theme colors
-private class CalcSyntaxHighlighter(
+// Lightweight natural math display + syntax highlighter for Calc input using Monet theme colors.
+private class CalcInputVisualTransformation(
     private val numColor: androidx.compose.ui.graphics.Color,
     private val strColor: androidx.compose.ui.graphics.Color,
     private val funcColor: androidx.compose.ui.graphics.Color,
-    private val kwColor: androidx.compose.ui.graphics.Color
+    private val kwColor: androidx.compose.ui.graphics.Color,
+    private val syntaxHighlighting: Boolean
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
-        val raw = text.text
+        val display = NaturalMathFormatter.formatWithOffsets(text.text)
+        if (!syntaxHighlighting) {
+            return TransformedText(AnnotatedString(display.text), display.offsetMapping())
+        }
+
+        val raw = display.text
         val annotated = buildAnnotatedString {
             var i = 0
             while (i < raw.length) {
@@ -134,7 +142,19 @@ private class CalcSyntaxHighlighter(
                 append(raw[i]); i++
             }
         }
-        return TransformedText(annotated, OffsetMapping.Identity)
+        return TransformedText(annotated, display.offsetMapping())
+    }
+
+    private fun NaturalMathDisplay.offsetMapping(): OffsetMapping = object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int {
+            val safeOffset = offset.coerceIn(0, originalToTransformed.lastIndex)
+            return originalToTransformed[safeOffset]
+        }
+
+        override fun transformedToOriginal(offset: Int): Int {
+            val safeOffset = offset.coerceIn(0, transformedToOriginal.lastIndex)
+            return transformedToOriginal[safeOffset]
+        }
     }
 }
 
@@ -200,6 +220,9 @@ fun MainCalculatorScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
+    fun displayExpression(text: String): String = NaturalMathFormatter.format(text)
+    fun displayResultText(calcResult: CalcResult): String =
+        if (calcResult.isError) calcResult.primary else displayExpression(calcResult.primary)
 
 LaunchedEffect(restoreExpression) {
         val expression = restoreExpression
@@ -305,13 +328,13 @@ LaunchedEffect(restoreExpression) {
                             horizontalAlignment = Alignment.End
                         ) {
                             Text(
-                                text = line.input,
+                                text = displayExpression(line.input),
                                 style = TextStyle(fontSize = 13.sp, color = colors.onSurface.copy(alpha = 0.5f), textAlign = TextAlign.End, letterSpacing = 0.sp, fontFamily = FontFamily.Monospace),
                                 maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.fillMaxWidth().clickable { input = TextFieldValue(line.input); onInputChange(input) }
                             )
                             Text(
-                                text = line.result.primary,
+                                text = displayResultText(line.result),
                                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = if (line.result.isError) colors.error.copy(alpha = 0.65f) else colors.primary.copy(alpha = 0.75f), textAlign = TextAlign.End, letterSpacing = 0.sp),
                                 maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.fillMaxWidth().clickable { input = TextFieldValue(line.result.primary); onInputChange(input) }
@@ -344,7 +367,7 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                         modifier = Modifier.weight(1f).heightIn(min = 36.dp).focusRequester(focusRequester),
                         textStyle = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Normal, textAlign = TextAlign.End, color = colors.onSurface, fontFamily = FontFamily.Monospace, letterSpacing = 0.sp),
                         cursorBrush = SolidColor(colors.primary),
-                        visualTransformation = if (syntaxHighlighting) CalcSyntaxHighlighter(colors.onSurface, colors.secondary, colors.primary, colors.tertiary) else VisualTransformation.None,
+                        visualTransformation = CalcInputVisualTransformation(colors.onSurface, colors.secondary, colors.primary, colors.tertiary, syntaxHighlighting),
                         singleLine = false, maxLines = 4,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { evaluate() }),
@@ -358,7 +381,7 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                 }
                 Spacer(Modifier.height(4.dp))
                 AnimatedContent(
-                    targetState = trunc(result?.primary.orEmpty()),
+                    targetState = trunc(result?.let { displayResultText(it) }.orEmpty()),
                     transitionSpec = { (fadeIn(tween(200)) + slideInVertically(tween(200)) { it / 8 }).togetherWith(fadeOut(tween(150))) },
                     label = "result", modifier = Modifier.fillMaxWidth().clickable { if (result?.primary?.isNotBlank() == true) resultDialog = true }
                 ) { text ->
@@ -375,7 +398,7 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                         enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 8 },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(tn, style = TextStyle(fontSize = 14.sp, color = colors.onSurfaceVariant, textAlign = TextAlign.End, letterSpacing = 0.sp, fontFamily = FontFamily.Monospace), maxLines = 1, modifier = Modifier.fillMaxWidth())
+                        Text(displayExpression(tn), style = TextStyle(fontSize = 14.sp, color = colors.onSurfaceVariant, textAlign = TextAlign.End, letterSpacing = 0.sp, fontFamily = FontFamily.Monospace), maxLines = 1, modifier = Modifier.fillMaxWidth())
                     }
                 }
                 val plotData = result?.plotData?.takeIf { result?.isPlot == true }.orEmpty()
