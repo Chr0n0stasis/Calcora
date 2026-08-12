@@ -114,7 +114,7 @@
 			outputPaths = ();
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n./gradlew -p iosApp/shared embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "cd \"$SRCROOT/..\"\n./gradlew -p iosApp/shared embedAndSignAppleFrameworkForXcode\n\ncase \"${SDK_NAME:-}\" in\n  iphoneos*) native_target=iosArm64 ;;\n  iphonesimulator*)\n    case \"${CURRENT_ARCH:-${NATIVE_ARCH_ACTUAL:-}}\" in\n      arm64) native_target=iosSimulatorArm64 ;;\n      x86_64) native_target=iosX64 ;;\n      *) echo \"Unsupported simulator architecture: ${CURRENT_ARCH:-unknown}\" >&2; exit 2 ;;\n    esac\n    ;;\n  *) echo \"Unsupported Apple SDK: ${SDK_NAME:-unknown}\" >&2; exit 2 ;;\nesac\n\nnative_library=\"$SRCROOT/shared/build/native/$native_target/libcalcora.a\"\ntest -f \"$native_library\"\ncp -f \"$native_library\" \"$BUILT_PRODUCTS_DIR/libcalcora.a\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -147,7 +147,9 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
 				MARKETING_VERSION = 0.3.1;
+				OTHER_LDFLAGS = "$(inherited) -lcalcora -lc++ -lz -liconv";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.libchara.calcora;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -173,7 +175,9 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
 				MARKETING_VERSION = 0.3.1;
+				OTHER_LDFLAGS = "$(inherited) -lcalcora -lc++ -lz -liconv";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.libchara.calcora;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
