@@ -19,8 +19,11 @@ fun org.jetbrains.skia.Canvas.drawLine(
         isAntiAlias = true
         strokeWidth = paint.strokeWidth
         mode = PaintMode.STROKE
-        strokeCap = if (paint.strokeCap == Paint.Cap.ROUND)
-            org.jetbrains.skia.PaintStrokeCap.ROUND else org.jetbrains.skia.PaintStrokeCap.SQUARE
+        strokeCap = when (paint.strokeCap) {
+            Paint.Cap.BUTT -> org.jetbrains.skia.PaintStrokeCap.BUTT
+            Paint.Cap.ROUND -> org.jetbrains.skia.PaintStrokeCap.ROUND
+            Paint.Cap.SQUARE -> org.jetbrains.skia.PaintStrokeCap.SQUARE
+        }
     }
     drawLine(x1, y1, x2, y2, nativePaint)
 }

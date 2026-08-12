@@ -27,18 +27,18 @@ object R {
         val eval_exact = Res.string.eval_exact
         val eval_raw = Res.string.eval_raw
         val help_all_commands = Res.string.help_all_commands
-        val help_category_algebra = Res.string.help_category_algebra
-        val help_category_algebra_desc = Res.string.help_category_algebra_desc
-        val help_category_calculus = Res.string.help_category_calculus
-        val help_category_calculus_desc = Res.string.help_category_calculus_desc
-        val help_category_linear_algebra = Res.string.help_category_linear_algebra
-        val help_category_linear_algebra_desc = Res.string.help_category_linear_algebra_desc
-        val help_category_lists = Res.string.help_category_lists
-        val help_category_lists_desc = Res.string.help_category_lists_desc
-        val help_category_plotting = Res.string.help_category_plotting
-        val help_category_plotting_desc = Res.string.help_category_plotting_desc
-        val help_category_statistics = Res.string.help_category_statistics
-        val help_category_statistics_desc = Res.string.help_category_statistics_desc
+        const val help_category_algebra = 1
+        const val help_category_algebra_desc = 2
+        const val help_category_calculus = 3
+        const val help_category_calculus_desc = 4
+        const val help_category_linear_algebra = 5
+        const val help_category_linear_algebra_desc = 6
+        const val help_category_lists = 7
+        const val help_category_lists_desc = 8
+        const val help_category_plotting = 9
+        const val help_category_plotting_desc = 10
+        const val help_category_statistics = 11
+        const val help_category_statistics_desc = 12
         val help_command_count = Res.string.help_command_count
         val help_desc = Res.string.help_desc
         val help_empty = Res.string.help_empty
@@ -119,5 +119,21 @@ object R {
         val update_dialog_later = Res.string.update_dialog_later
         val update_dialog_message = Res.string.update_dialog_message
         val update_dialog_title = Res.string.update_dialog_title
+    }
+
+    internal fun stringResource(id: Int) = when (id) {
+        string.help_category_algebra -> Res.string.help_category_algebra
+        string.help_category_algebra_desc -> Res.string.help_category_algebra_desc
+        string.help_category_calculus -> Res.string.help_category_calculus
+        string.help_category_calculus_desc -> Res.string.help_category_calculus_desc
+        string.help_category_linear_algebra -> Res.string.help_category_linear_algebra
+        string.help_category_linear_algebra_desc -> Res.string.help_category_linear_algebra_desc
+        string.help_category_lists -> Res.string.help_category_lists
+        string.help_category_lists_desc -> Res.string.help_category_lists_desc
+        string.help_category_plotting -> Res.string.help_category_plotting
+        string.help_category_plotting_desc -> Res.string.help_category_plotting_desc
+        string.help_category_statistics -> Res.string.help_category_statistics
+        string.help_category_statistics_desc -> Res.string.help_category_statistics_desc
+        else -> error("Unknown string resource id: $id")
     }
 }

@@ -2,13 +2,18 @@
 
 package java.io
 
-import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
-import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
-import platform.Foundation.NSData
 import platform.Foundation.NSFileManager
+import platform.posix.SEEK_END
+import platform.posix.fclose
+import platform.posix.fopen
+import platform.posix.fread
+import platform.posix.fseek
+import platform.posix.ftell
+import platform.posix.fwrite
+import platform.posix.rewind
 
 /** Small java.io.File compatibility surface used by the existing script editor. */
 class File(val path: String) {
@@ -30,16 +35,31 @@ class File(val path: String) {
     fun exists(): Boolean = NSFileManager.defaultManager.fileExistsAtPath(path)
 
     fun readText(): String {
-        val data = NSData.dataWithContentsOfFile(path) ?: return ""
-        val pointer = data.bytes?.reinterpret<ByteVar>() ?: return ""
-        return ByteArray(data.length.toInt()) { pointer[it] }.decodeToString()
+        val stream = fopen(path, "rb") ?: return ""
+        return try {
+            if (fseek(stream, 0, SEEK_END) != 0) return ""
+            val size = ftell(stream)
+            if (size <= 0) return ""
+            rewind(stream)
+            val bytes = ByteArray(size.toInt())
+            bytes.usePinned { pinned ->
+                fread(pinned.addressOf(0), 1.convert(), bytes.size.convert(), stream)
+            }
+            bytes.decodeToString()
+        } finally {
+            fclose(stream)
+        }
     }
 
     fun writeText(text: String) {
         val bytes = text.encodeToByteArray()
-        bytes.usePinned { pinned ->
-            NSData.create(bytes = pinned.addressOf(0), length = bytes.size.convert())
-                .writeToFile(path, atomically = true)
+        val stream = fopen(path, "wb") ?: return
+        try {
+            if (bytes.isNotEmpty()) bytes.usePinned { pinned ->
+                fwrite(pinned.addressOf(0), 1.convert(), bytes.size.convert(), stream)
+            }
+        } finally {
+            fclose(stream)
         }
     }
 

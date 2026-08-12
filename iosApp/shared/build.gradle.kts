@@ -9,6 +9,26 @@ plugins {
 val repositoryRoot = layout.projectDirectory.dir("../..").asFile
 val androidSources = repositoryRoot.resolve("app/src/main/java")
 val generatedResources = layout.buildDirectory.dir("generated/composeResources/commonMain")
+val generatedAndroidSources = layout.buildDirectory.dir("generated/androidSources/iosMain")
+
+val iosSourceExcludes = listOf(
+    "dev/libchara/calcora/MainActivity.kt",
+    "dev/libchara/calcora/ScriptActivity.kt",
+    "dev/libchara/calcora/TerminalActivity.kt",
+    "dev/libchara/calcora/data/HistoryStore.kt",
+    "dev/libchara/calcora/data/SettingsStore.kt",
+    "dev/libchara/calcora/data/UpdateChecker.kt",
+    "dev/libchara/calcora/engine/GiacEngine.kt",
+    "dev/libchara/calcora/engine/HelpParser.kt",
+    "dev/libchara/calcora/ui/theme/Theme.kt"
+)
+
+// Filter only the reused Android tree. SourceSet.exclude() would also remove
+// the iOS replacements because they intentionally use the same package paths.
+val syncIosKotlinSources by tasks.registering(Sync::class) {
+    from(androidSources) { exclude(iosSourceExcludes) }
+    into(generatedAndroidSources)
+}
 
 val syncIosResources by tasks.registering(Sync::class) {
     from(repositoryRoot.resolve("app/src/main/res/values/strings.xml")) { into("values") }
@@ -55,20 +75,13 @@ kotlin {
         }
 
         iosMain {
-            kotlin.srcDir(androidSources)
-            kotlin.exclude(
-                "dev/libchara/calcora/MainActivity.kt",
-                "dev/libchara/calcora/ScriptActivity.kt",
-                "dev/libchara/calcora/TerminalActivity.kt",
-                "dev/libchara/calcora/data/HistoryStore.kt",
-                "dev/libchara/calcora/data/SettingsStore.kt",
-                "dev/libchara/calcora/data/UpdateChecker.kt",
-                "dev/libchara/calcora/engine/GiacEngine.kt",
-                "dev/libchara/calcora/engine/HelpParser.kt",
-                "dev/libchara/calcora/ui/theme/Theme.kt"
-            )
+            kotlin.srcDir(generatedAndroidSources)
         }
     }
+}
+
+tasks.matching { it.name.startsWith("compileKotlinIos") }.configureEach {
+    dependsOn(syncIosKotlinSources)
 }
 
 compose.resources {

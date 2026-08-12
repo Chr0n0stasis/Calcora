@@ -8,12 +8,12 @@ class Typeface internal constructor(internal val native: org.jetbrains.skia.Type
     companion object {
         const val NORMAL = 0
         fun create(name: String, @Suppress("UNUSED_PARAMETER") style: Int): Typeface =
-            Typeface(FontMgr.default.matchFamilyStyle(name, FontStyle.NORMAL))
+            Typeface(FontMgr.default.matchFamilyStyle(name, FontStyle.NORMAL)!!)
     }
 }
 
 class Paint(@Suppress("UNUSED_PARAMETER") flags: Int = 0) {
-    enum class Cap { SQUARE, ROUND }
+    enum class Cap { BUTT, SQUARE, ROUND }
     var textSize: Float = 16f
     var typeface: Typeface = Typeface.create("Menlo", Typeface.NORMAL)
     var strokeCap: Cap = Cap.SQUARE
