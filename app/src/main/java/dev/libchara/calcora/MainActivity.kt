@@ -167,7 +167,10 @@ private fun CalcoraApp(initialDestination: Destination? = null) {
                         Destination.Help -> HelpScreen(
                             contentPadding = padding, initialFunc = helpFunc,
                             onInsert = { func ->
-                                restoreRequest = HistoryEntry(0, func, "", "", dev.libchara.calcora.engine.EvalMode.Auto, 0)
+                                restoreRequest = HistoryEntry(
+                                    id = 0, expression = func, result = "", numeric = "",
+                                    mode = dev.libchara.calcora.engine.EvalMode.Auto, timestamp = 0
+                                )
                                 destination = Destination.Calculator })
                         Destination.History -> HistoryScreen(
                             contentPadding = padding, history = history,

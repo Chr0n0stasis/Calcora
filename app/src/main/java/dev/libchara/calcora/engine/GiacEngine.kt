@@ -113,6 +113,7 @@ object GiacEngine {
         val error = json.optString("error").takeIf { it.isNotBlank() }
         CalcResult(
             input = input, symbolic = json.optString("symbolic"), numeric = json.optString("numeric"),
+            latex = json.optString("latex"), numericLatex = json.optString("numericLatex"),
             error = error, mode = mode, backend = json.optString("backend", "native"),
             isPlot = json.optBoolean("isGraphic", false), plotData = json.optString("plotData", "")
         )

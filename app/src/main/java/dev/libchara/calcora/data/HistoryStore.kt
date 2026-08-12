@@ -13,6 +13,8 @@ data class HistoryEntry(
     val expression: String,
     val result: String,
     val numeric: String,
+    val latex: String = "",
+    val numericLatex: String = "",
     val mode: EvalMode,
     val timestamp: Long,
     val isPlot: Boolean = false,
@@ -39,6 +41,8 @@ class HistoryStore(context: Context) {
                         expression = item.optString("expression"),
                         result = item.optString("result"),
                         numeric = item.optString("numeric"),
+                        latex = item.optString("latex"),
+                        numericLatex = item.optString("numericLatex"),
                         mode = EvalMode.fromName(item.optString("mode")),
                         timestamp = item.optLong("timestamp"),
                         isPlot = item.optBoolean("isPlot", false),
@@ -58,6 +62,8 @@ class HistoryStore(context: Context) {
             expression = result.input,
             result = result.primary,
             numeric = result.numeric,
+            latex = result.latex,
+            numericLatex = result.numericLatex,
             mode = result.mode,
             timestamp = now,
             isPlot = result.isPlot,
@@ -89,6 +95,8 @@ class HistoryStore(context: Context) {
                     .put("expression", item.expression)
                     .put("result", item.result)
                     .put("numeric", item.numeric)
+                    .put("latex", item.latex)
+                    .put("numericLatex", item.numericLatex)
                     .put("mode", item.mode.name)
                     .put("timestamp", item.timestamp)
                     .put("isPlot", item.isPlot)

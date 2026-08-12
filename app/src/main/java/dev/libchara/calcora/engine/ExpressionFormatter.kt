@@ -1,12 +1,8 @@
 package dev.libchara.calcora.engine
 
 object ExpressionFormatter {
-    fun toEngineInput(input: String): String = input
-        .replace("×", "*")
-        .replace("÷", "/")
-        .replace("−", "-")
-        .replace("π", "pi")
-        .trim()
+    fun toEngineInput(input: String): String =
+        NaturalMath.toGiac(NaturalMathEditing.commitInferredDelimiters(input).text)
 
     fun appendToken(current: String, token: String): String {
         val mapped = when (token) {

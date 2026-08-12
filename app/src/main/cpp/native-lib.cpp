@@ -9,6 +9,7 @@
 #include "giac/subst.h"
 #include "giac/plot.h"
 #include "giac/plot3d.h"
+#include "giac/tex.h"
 #endif
 
 #include <algorithm>
@@ -282,6 +283,7 @@ std::string make_result(const std::string &symbolic, const std::string &numeric 
     out << "{\"symbolic\":\"" << json_escape(symbolic)
         << "\",\"numeric\":\"" << json_escape(numeric)
         << "\",\"error\":\"" << json_escape(error)
+        << "\",\"latex\":\"\",\"numericLatex\":\""
         << "\",\"backend\":\"" << json_escape(
 #if CALCULATORPLUS_WITH_GIAC
             "giac 2.0.0 native core"
@@ -315,14 +317,19 @@ std::string evaluate_with_giac(const std::string &expr, const std::string &mode)
         std::string plotData = extract_giac_plot_data(evaluated);
         bool isGraphic = !plotData.empty() && plotData != "[]";
         std::string symbolic = evaluated.print(giac_context);
+        std::string latex = giac::gen2tex(evaluated, giac_context);
 
         std::string numeric;
         giac::gen approx = giac::evalf(evaluated, 1, giac_context);
         std::string approxText = approx.print(giac_context);
         if (approxText != symbolic) numeric = approxText;
+        std::string numericLatex;
+        if (!numeric.empty()) numericLatex = giac::gen2tex(approx, giac_context);
         std::ostringstream plotJson;
         plotJson << "{\"symbolic\":\"" << json_escape(symbolic)
                  << "\",\"numeric\":\"" << json_escape(numeric)
+                 << "\",\"latex\":\"" << json_escape(latex)
+                 << "\",\"numericLatex\":\"" << json_escape(numericLatex)
                  << "\",\"error\":\"\""
                  << ",\"backend\":\"giac 2.0.0 native core\""
                  << ",\"isGraphic\":" << (isGraphic ? "true" : "false");

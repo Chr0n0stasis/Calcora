@@ -4,6 +4,8 @@ data class CalcResult(
     val input: String,
     val symbolic: String = "",
     val numeric: String = "",
+    val latex: String = "",
+    val numericLatex: String = "",
     val error: String? = null,
     val mode: EvalMode = EvalMode.Auto,
     val backend: String = "native",

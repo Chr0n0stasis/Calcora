@@ -8,10 +8,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,29 +26,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -65,13 +64,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 
-import androidx.compose.ui.graphics.SolidColor
-
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,83 +75,16 @@ import androidx.compose.ui.res.stringResource
 import dev.libchara.calcora.R
 import androidx.compose.ui.unit.sp
 import android.view.HapticFeedbackConstants
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import dev.libchara.calcora.engine.CalcResult
 import dev.libchara.calcora.engine.EvalMode
+import dev.libchara.calcora.engine.ExpressionFormatter
 import dev.libchara.calcora.engine.GiacEngine
 import dev.libchara.calcora.engine.HelpParser
-import dev.libchara.calcora.engine.NaturalMathDisplay
-import dev.libchara.calcora.engine.NaturalMathFormatter
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.withStyle
-
-private val CALC_KEYWORDS = setOf(
-    "if", "then", "else", "for", "from", "to", "do", "od", "step", "in",
-    "while", "repeat", "until", "break", "local", "return", "function",
-    "begin", "end", "assume", "purge"
-)
-
-// Lightweight natural math display + syntax highlighter for Calc input using Monet theme colors.
-private class CalcInputVisualTransformation(
-    private val numColor: androidx.compose.ui.graphics.Color,
-    private val strColor: androidx.compose.ui.graphics.Color,
-    private val funcColor: androidx.compose.ui.graphics.Color,
-    private val kwColor: androidx.compose.ui.graphics.Color,
-    private val syntaxHighlighting: Boolean
-) : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val display = NaturalMathFormatter.formatWithOffsets(text.text)
-        if (!syntaxHighlighting) {
-            return TransformedText(AnnotatedString(display.text), display.offsetMapping())
-        }
-
-        val raw = display.text
-        val annotated = buildAnnotatedString {
-            var i = 0
-            while (i < raw.length) {
-                if (raw[i] == '"') {
-                    val end = raw.indexOf('"', i + 1).let { if (it == -1) raw.length else it + 1 }
-                    withStyle(SpanStyle(color = strColor)) { append(raw.substring(i, end)) }
-                    i = end; continue
-                }
-                if (raw[i].isDigit() || (raw[i] == '.' && i + 1 < raw.length && raw[i + 1].isDigit())) {
-                    val start = i
-                    while (i < raw.length && (raw[i].isDigit() || raw[i] == '.' || raw[i] == 'e' || raw[i] == 'E')) i++
-                    withStyle(SpanStyle(color = numColor)) { append(raw.substring(start, i)) }
-                    continue
-                }
-                if (raw[i].isLetter() || raw[i] == '_') {
-                    val start = i
-                    while (i < raw.length && (raw[i].isLetterOrDigit() || raw[i] == '_')) i++
-                    val w = raw.substring(start, i)
-                    val color = if (w in CALC_KEYWORDS) kwColor else funcColor
-                    withStyle(SpanStyle(color = color)) { append(w) }
-                    continue
-                }
-                append(raw[i]); i++
-            }
-        }
-        return TransformedText(annotated, display.offsetMapping())
-    }
-
-    private fun NaturalMathDisplay.offsetMapping(): OffsetMapping = object : OffsetMapping {
-        override fun originalToTransformed(offset: Int): Int {
-            val safeOffset = offset.coerceIn(0, originalToTransformed.lastIndex)
-            return originalToTransformed[safeOffset]
-        }
-
-        override fun transformedToOriginal(offset: Int): Int {
-            val safeOffset = offset.coerceIn(0, transformedToOriginal.lastIndex)
-            return transformedToOriginal[safeOffset]
-        }
-    }
-}
+import dev.libchara.calcora.engine.MathSource
+import dev.libchara.calcora.engine.NaturalMathEditing
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -185,6 +113,7 @@ fun MainCalculatorScreen(
     var functionsExpanded by remember { mutableStateOf(false) }
     var varsExpanded by remember { mutableStateOf(false) }
     var fxExpanded by remember { mutableStateOf(false) }
+    var giacDebugEnabled by rememberSaveable { mutableStateOf(false) }
 
     var evaluating by remember { mutableStateOf(false) }
     var showSpinner by remember { mutableStateOf(false) }
@@ -217,12 +146,12 @@ fun MainCalculatorScreen(
 
     var resultDialog by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
+    val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    val focusRequester = remember { FocusRequester() }
-    fun displayExpression(text: String): String = NaturalMathFormatter.format(text)
-    fun displayResultText(calcResult: CalcResult): String =
-        if (calcResult.isError) calcResult.primary else displayExpression(calcResult.primary)
+    fun resultMath(calcResult: CalcResult): Pair<String, MathSource> =
+        if (!calcResult.isError && calcResult.latex.isNotBlank()) calcResult.latex to MathSource.Latex
+        else calcResult.primary to MathSource.Xcas
 
 LaunchedEffect(restoreExpression) {
         val expression = restoreExpression
@@ -241,7 +170,16 @@ LaunchedEffect(restoreExpression) {
         val start = input.selection.min
         val end = input.selection.max
         val next = input.text.replaceRange(start, end, template)
-        input = TextFieldValue(next, selection = androidx.compose.ui.text.TextRange(start + firstPlaceholder.coerceAtMost(template.length))); onInputChange(input)
+        val proposedCursor = start + firstPlaceholder.coerceAtMost(template.length)
+        val adjusted = NaturalMathEditing.adjust(
+            input.text, input.selection.start, input.selection.end,
+            next, proposedCursor, proposedCursor
+        )
+        input = TextFieldValue(
+            adjusted.text,
+            selection = androidx.compose.ui.text.TextRange(adjusted.selectionStart, adjusted.selectionEnd)
+        )
+        onInputChange(input)
     }
 
     fun extractHelpArg(input: String): String {
@@ -257,7 +195,19 @@ LaunchedEffect(restoreExpression) {
     }
 
     fun evaluate() {
-        val text = input.text.trim()
+        val committed = NaturalMathEditing.commitInferredDelimiters(
+            input.text,
+            input.selection.start,
+            input.selection.end
+        )
+        if (committed.text != input.text) {
+            input = TextFieldValue(
+                committed.text,
+                selection = androidx.compose.ui.text.TextRange(committed.selectionStart, committed.selectionEnd)
+            )
+            onInputChange(input)
+        }
+        val text = committed.text.trim()
         if (text.isEmpty() || evaluating) return
         if (text.startsWith("help(", ignoreCase = true)) {
             val arg = extractHelpArg(text)
@@ -300,6 +250,22 @@ LaunchedEffect(restoreExpression) {
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(
+                onClick = { giacDebugEnabled = !giacDebugEnabled },
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(
+                        if (giacDebugEnabled) colors.primaryContainer else colors.background,
+                        RoundedCornerShape(12.dp)
+                    )
+            ) {
+                Text(
+                    "DBG",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (giacDebugEnabled) colors.onPrimaryContainer else colors.onSurfaceVariant
+                )
+            }
             IconButton(onClick = onNavigateScript, modifier = Modifier.size(40.dp)) {
                 Text("</>", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colors.primary)
             }
@@ -327,16 +293,15 @@ LaunchedEffect(restoreExpression) {
                                 .padding(vertical = 3.dp),
                             horizontalAlignment = Alignment.End
                         ) {
-                            Text(
-                                text = displayExpression(line.input),
-                                style = TextStyle(fontSize = 13.sp, color = colors.onSurface.copy(alpha = 0.5f), textAlign = TextAlign.End, letterSpacing = 0.sp, fontFamily = FontFamily.Monospace),
-                                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            NaturalMathView(
+                                source = line.input, fontSize = 13f,
+                                color = colors.onSurface.copy(alpha = 0.5f),
                                 modifier = Modifier.fillMaxWidth().clickable { input = TextFieldValue(line.input); onInputChange(input) }
                             )
-                            Text(
-                                text = displayResultText(line.result),
-                                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = if (line.result.isError) colors.error.copy(alpha = 0.65f) else colors.primary.copy(alpha = 0.75f), textAlign = TextAlign.End, letterSpacing = 0.sp),
-                                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            val (historyResultSource, historyResultKind) = resultMath(line.result)
+                            NaturalMathView(
+                                source = historyResultSource, sourceKind = historyResultKind, fontSize = 15f,
+                                color = if (line.result.isError) colors.error.copy(alpha = 0.65f) else colors.primary.copy(alpha = 0.75f),
                                 modifier = Modifier.fillMaxWidth().clickable { input = TextFieldValue(line.result.primary); onInputChange(input) }
                             )
                             Spacer(Modifier.height(1.dp))
@@ -356,49 +321,56 @@ LaunchedEffect(restoreExpression) {
                 ) {
                     // Reserve space for autocomplete overlay when visible
                     if (autocompleteVisible) Spacer(Modifier.height(44.dp))
+                    AnimatedVisibility(
+                        visible = giacDebugEnabled,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val engineCommand = ExpressionFormatter.toEngineInput(input.text)
+                        GiacCommandDebugPanel(
+                            command = engineCommand,
+                            onCopy = { clipboard.setText(AnnotatedString(engineCommand)) }
+                        )
+                    }
 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     if (input.text.isNotEmpty()) Text("×", fontSize = 16.sp, color = colors.onSurface.copy(alpha = 0.3f), modifier = Modifier.clickable { input = TextFieldValue(""); onInputChange(TextFieldValue("")) }.padding(end = 8.dp, bottom = 2.dp))
-                    BasicTextField(
+                    NaturalMathEditor(
                         value = input,
                         onValueChange = {
                             input = it
                             onInputChange(it)
                         },
-                        modifier = Modifier.weight(1f).heightIn(min = 36.dp).focusRequester(focusRequester),
-                        textStyle = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Normal, textAlign = TextAlign.End, color = colors.onSurface, fontFamily = FontFamily.Monospace, letterSpacing = 0.sp),
-                        cursorBrush = SolidColor(colors.primary),
-                        visualTransformation = CalcInputVisualTransformation(colors.onSurface, colors.secondary, colors.primary, colors.tertiary, syntaxHighlighting),
-                        singleLine = false, maxLines = 4,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { evaluate() }),
-                        decorationBox = { inner ->
-                    Box(contentAlignment = Alignment.CenterEnd) {
-                        if (input.text.isEmpty()) Text("0", style = TextStyle(fontSize = 24.sp, color = colors.onSurface.copy(alpha = 0.38f), textAlign = TextAlign.End), modifier = Modifier.fillMaxWidth())
-                        inner()
-                        }
-                    }
+                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                        fontSize = 25f,
+                        syntaxHighlighting = syntaxHighlighting,
+                        onDone = { evaluate() }
                     )
                 }
                 Spacer(Modifier.height(4.dp))
                 AnimatedContent(
-                    targetState = trunc(result?.let { displayResultText(it) }.orEmpty()),
+                    targetState = result?.let { resultMath(it) } ?: ("" to MathSource.Xcas),
                     transitionSpec = { (fadeIn(tween(200)) + slideInVertically(tween(200)) { it / 8 }).togetherWith(fadeOut(tween(150))) },
                     label = "result", modifier = Modifier.fillMaxWidth().clickable { if (result?.primary?.isNotBlank() == true) resultDialog = true }
-                ) { text ->
+                ) { (text, sourceKind) ->
                     val resultSize = when { text.length > 40 -> 18.sp; text.length > 20 -> 22.sp; else -> 26.sp }
-                    Text(
-                        text = text,
-                        style = TextStyle(fontSize = resultSize, fontWeight = FontWeight.Medium, color = if (result?.isError == true) colors.error else colors.primary, textAlign = TextAlign.End, letterSpacing = 0.sp, fontFamily = FontFamily.Monospace),
-                        maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth()
+                    NaturalMathView(
+                        source = text,
+                        sourceKind = sourceKind,
+                        fontSize = resultSize.value,
+                        color = if (result?.isError == true) colors.error else colors.primary,
+                        modifier = Modifier.fillMaxWidth(), minHeight = 42.dp
                     )
                 }
-                result?.numeric?.takeIf { it.isNotBlank() && it != result?.primary && result?.isError != true }?.let { num -> val tn = trunc(num)
+                result?.numeric?.takeIf { it.isNotBlank() && it != result?.primary && result?.isError != true }?.let { num ->
+                    val tn = result?.numericLatex?.takeIf { it.isNotBlank() } ?: trunc(num)
+                    val numericKind = if (result?.numericLatex.isNullOrBlank()) MathSource.Xcas else MathSource.Latex
                     androidx.compose.animation.AnimatedVisibility(
                         visible = true,
                         enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 8 },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(displayExpression(tn), style = TextStyle(fontSize = 14.sp, color = colors.onSurfaceVariant, textAlign = TextAlign.End, letterSpacing = 0.sp, fontFamily = FontFamily.Monospace), maxLines = 1, modifier = Modifier.fillMaxWidth())
+                        NaturalMathView(tn, sourceKind = numericKind, fontSize = 14f, color = colors.onSurfaceVariant, modifier = Modifier.fillMaxWidth())
                     }
                 }
                 val plotData = result?.plotData?.takeIf { result?.isPlot == true }.orEmpty()
@@ -470,15 +442,17 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                 Spacer(Modifier.width(4.dp))
                 AssistChip(onClick = {
                     val cursor = input.selection.start.coerceAtLeast(0)
-                    if (cursor > 0) {
-                        input = TextFieldValue(input.text, selection = androidx.compose.ui.text.TextRange(cursor - 1))
+                    if (cursor > 0 || input.text.isNotEmpty()) {
+                        val moved = NaturalMathEditing.moveHorizontally(input.text, cursor, -1)
+                        input = TextFieldValue(moved.text, selection = androidx.compose.ui.text.TextRange(moved.selectionStart))
                         onInputChange(input)
                     }
                 }, label = { Text("◀", fontSize = 13.sp) }, shape = RoundedCornerShape(14.dp))
                 AssistChip(onClick = {
                     val cursor = input.selection.end
-                    if (cursor < input.text.length) {
-                        input = TextFieldValue(input.text, selection = androidx.compose.ui.text.TextRange(cursor + 1))
+                    if (input.text.isNotEmpty()) {
+                        val moved = NaturalMathEditing.moveHorizontally(input.text, cursor, 1)
+                        input = TextFieldValue(moved.text, selection = androidx.compose.ui.text.TextRange(moved.selectionStart))
                         onInputChange(input)
                     }
                 }, label = { Text("▶", fontSize = 13.sp) }, shape = RoundedCornerShape(14.dp))
@@ -535,22 +509,25 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                                 when (key.label) {
                                     "AC" -> { input = TextFieldValue(""); result = null; calcHistory.clear(); onInputChange(TextFieldValue("")); onResultChange(null) }
                                     "⌫" -> {
-                                        val cursor = input.selection.start.coerceAtLeast(0)
-                                        if (cursor > 0) {
-                                            val next = input.text.removeRange(cursor - 1, cursor)
-                                            input = TextFieldValue(next, selection = androidx.compose.ui.text.TextRange(cursor - 1))
-                                            onInputChange(input)
-                                        }
+                                        val edited = NaturalMathEditing.backspace(input.text, input.selection.start, input.selection.end)
+                                        input = TextFieldValue(edited.text, selection = androidx.compose.ui.text.TextRange(edited.selectionStart))
+                                        onInputChange(input)
                                     }
                                     "EXE" -> evaluate()
-                                    "\u00F7" -> insert("\u00F7")
+                                    "\u00F7" -> insert("/")
                                     "\u00D7" -> insert("\u00D7")
                                     "\u2212" -> insert("\u2212")
                                     "," -> insert(",")
                                     else -> insert(key.label)
                                 }
                             },
-                            modifier = Modifier.weight(if (isWide) 2.1f else 1f)
+                            modifier = Modifier.weight(if (isWide) 2.1f else 1f),
+                            onLongClick = if (key.label == "⌫") {
+                                {
+                                    input = TextFieldValue("")
+                                    onInputChange(input)
+                                }
+                            } else null
                         )
                     }
                 }
@@ -583,6 +560,53 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
     } // end Box
 }
 
+@Composable
+private fun GiacCommandDebugPanel(command: String, onCopy: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = colors.surfaceVariant.copy(alpha = .58f)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = "GIAC",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = colors.primary
+            )
+            SelectionContainer(modifier = Modifier.weight(1f)) {
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                    Text(
+                        text = command.ifEmpty { "—" },
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        color = colors.onSurface
+                    )
+                }
+            }
+            IconButton(
+                onClick = onCopy,
+                enabled = command.isNotEmpty(),
+                modifier = Modifier.size(34.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.btn_copy_short),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
 
 data class HistoryLine(
     val input: String,
@@ -607,20 +631,27 @@ private val FX_PANEL_ITEMS = listOf(
     "sin(\u25A1)" to "sin", "cos(\u25A1)" to "cos", "tan(\u25A1)" to "tan",
     "asin(\u25A1)" to "asin", "acos(\u25A1)" to "acos", "atan(\u25A1)" to "atan",
     "ln(\u25A1)" to "ln", "log(\u25A1)" to "log", "sqrt(\u25A1)" to "sqrt",
-    "abs(\u25A1)" to "abs", "exp(\u25A1)" to "exp", "^\u25A1" to "^"
+    "abs(\u25A1)" to "abs", "exp(\u25A1)" to "exp", "^(\u25A1)" to "^"
 )
 
 private val FUNCTIONS_PANEL_ITEMS = listOf(
     "simplify(\u25A1)", "factor(\u25A1)", "expand(\u25A1)", "normal(\u25A1)", "solve(\u25A1=0,x)", "subst(\u25A1,x=\u25A1)",
-    "diff(\u25A1,x)", "integrate(\u25A1,x)", "limit(\u25A1,x=0)", "sum(\u25A1,k,1,n)",
+    "diff(\u25A1,x)", "diff(\u25A1,x,2)", "integrate(\u25A1,x)", "integrate(\u25A1,x,0,1)", "limit(\u25A1,x=0)", "sum(\u25A1,k,1,n)",
     "det(\u25A1)", "inv(\u25A1)", "transpose(\u25A1)", "rank(\u25A1)",
     "ifactor(\u25A1)", "gcd(\u25A1,\u25A1)", "lcm(\u25A1,\u25A1)",
     "plot(\u25A1)", "plot3d(\u25A1)", "plotparam(\u25A1)", "plotlist(\u25A1)", "plotseq(\u25A1)", "plot(\u25A1,x=-5..5)",
     "makelist(\u25A1)", "makemat(\u25A1)", "fft(\u25A1)", "ifft(\u25A1)"
 )
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CalculatorKey(label: String, role: KeyRole, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun CalculatorKey(
+    label: String,
+    role: KeyRole,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null
+) {
     val colors = MaterialTheme.colorScheme
     val view = LocalView.current
     val bg = when (role) {
@@ -636,25 +667,34 @@ private fun CalculatorKey(label: String, role: KeyRole, onClick: () -> Unit, mod
         KeyRole.Clear -> colors.onErrorContainer
         else -> colors.onSurface
     }
-    Button(
-        onClick = {
-            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-            onClick()
-        },
-        modifier = modifier.height(78.dp),
+    Surface(
+        modifier = modifier.height(78.dp).combinedClickable(
+            onClick = {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                onClick()
+            },
+            onLongClick = onLongClick?.let { action ->
+                {
+                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    action()
+                }
+            }
+        ),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = bg, contentColor = fg),
-        contentPadding = PaddingValues(0.dp)
+        color = bg,
+        contentColor = fg
     ) {
-        Text(
-            text = label,
-            style = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = when { label.length > 2 -> 16.sp; role == KeyRole.Number || label == "," -> 24.sp; else -> 21.sp },
-                fontWeight = if (role == KeyRole.Equals || role == KeyRole.Number || label == ",") FontWeight.Medium else FontWeight.Normal,
-                letterSpacing = 0.sp, textAlign = TextAlign.Center
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = label,
+                style = TextStyle(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = when { label.length > 2 -> 16.sp; role == KeyRole.Number || label == "," -> 24.sp; else -> 21.sp },
+                    fontWeight = if (role == KeyRole.Equals || role == KeyRole.Number || label == ",") FontWeight.Medium else FontWeight.Normal,
+                    letterSpacing = 0.sp, textAlign = TextAlign.Center
+                )
             )
-        )
+        }
     }
 }
 
