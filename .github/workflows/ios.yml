@@ -1,0 +1,72 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ios:
+    name: Unsigned iOS Simulator app
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare build tools
+        run: |
+          chmod +x gradlew iosApp/native/build-native.sh
+          xcodebuild -version
+          cmake --version
+          java -version
+
+      - name: Build unsigned iOS Simulator app
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project iosApp/CalcoraIOS.xcodeproj \
+            -target CalcoraIOS \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -arch arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            SYMROOT="$RUNNER_TEMP/ios-build" \
+            OBJROOT="$RUNNER_TEMP/ios-obj" \
+            clean build
+
+      - name: Package app
+        run: |
+          APP_PATH="$(find "$RUNNER_TEMP/ios-build" -type d -name CalcoraIOS.app -print -quit)"
+          test -n "$APP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$APP_PATH" \
+            "$RUNNER_TEMP/Calcora-iOS-Simulator.zip"
+
+      - name: Upload app
+        uses: actions/upload-artifact@v4
+        with:
+          name: Calcora-iOS-Simulator
+          path: ${{ runner.temp }}/Calcora-iOS-Simulator.zip
+          if-no-files-found: error
+          retention-days: 14
