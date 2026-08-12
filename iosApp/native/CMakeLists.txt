@@ -29,6 +29,15 @@ set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory("${LIBTOMMATH_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/libtommath")
 
+# LibTomMath enables warnings from system headers, but its own Apple guard only
+# covers CMAKE_SYSTEM_NAME=Darwin. iOS uses CMAKE_SYSTEM_NAME=iOS, which causes
+# Apple SDK nullability diagnostics to flood the build log.
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+    target_compile_options(libtommath PRIVATE
+        -Wno-system-headers
+        -Wno-nullability-completeness)
+endif()
+
 set(GIAC_CORE_SOURCES
     ${GIAC_SRC}/input_lexer.cc ${GIAC_SRC}/sym2poly.cc ${GIAC_SRC}/gausspol.cc
     ${GIAC_SRC}/threaded.cc ${GIAC_SRC}/moyal.cc ${GIAC_SRC}/maple.cc
