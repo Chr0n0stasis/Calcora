@@ -9,6 +9,7 @@ import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSDateFormatterShortStyle
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.dateWithTimeIntervalSince1970
+import platform.Foundation.timeIntervalSince1970
 
 data class HistoryEntry(
     val id: Long,

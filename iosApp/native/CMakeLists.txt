@@ -70,6 +70,8 @@ target_include_directories(calcora_ios PRIVATE ${GIAC_SRC} ${GIAC_SOURCE_DIR} ${
 target_compile_definitions(calcora_ios PRIVATE
     CALCULATORPLUS_GIAC_SOURCE="${GIAC_SOURCE_DIR}"
     CALCULATORPLUS_WITH_GIAC=1 HAVE_CONFIG_H IN_GIAC IOS OSXIOS GIAC_GENERIC_CONSTANTS C11_UNORDERED_MAP)
-target_compile_options(calcora_ios PRIVATE -O3 -fPIC -fno-strict-aliasing)
+target_compile_options(calcora_ios PRIVATE
+    -O3 -fPIC -fno-strict-aliasing
+    -Wno-unused-result)
 target_link_libraries(giac_core PUBLIC libtommath)
 target_link_libraries(calcora_ios PUBLIC giac_core libtommath)

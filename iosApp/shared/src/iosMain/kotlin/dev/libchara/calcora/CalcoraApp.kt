@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import platform.Foundation.NSLocale
 import platform.Foundation.NSUserDefaults
+import platform.Foundation.currentLocale
 import platform.UIKit.UIViewController
 
 fun MainViewController(): UIViewController = ComposeUIViewController { CalcoraApp() }

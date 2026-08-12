@@ -11,8 +11,6 @@ import dev.libchara.calcora.native.calcora_engine_plot_sample
 import dev.libchara.calcora.native.calcora_engine_reset
 import dev.libchara.calcora.native.calcora_engine_set_language
 import dev.libchara.calcora.native.calcora_engine_version
-import kotlinx.cinterop.cstr
-import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.toKString
 import org.json.JSONArray
 import org.json.JSONObject
@@ -37,9 +35,7 @@ object GiacEngine {
     fun evaluate(input: String, mode: EvalMode): CalcResult {
         if (!init()) return CalcResult(input = input, error = "Native backend failed to load", mode = mode, backend = "unavailable")
         val normalized = ExpressionFormatter.toEngineInput(input)
-        val raw = memScoped {
-            calcora_engine_evaluate(normalized.cstr.ptr, mode.name.cstr.ptr)?.toKString().orEmpty()
-        }
+        val raw = calcora_engine_evaluate(normalized, mode.name)?.toKString().orEmpty()
         return parseResult(input, mode, raw)
     }
 
@@ -57,7 +53,7 @@ object GiacEngine {
                 if (entry.examples.isNotBlank()) { appendLine("Examples:"); append(entry.examples) }
             }
         }
-        val native = memScoped { calcora_engine_help(command.trim().cstr.ptr)?.toKString().orEmpty() }
+        val native = calcora_engine_help(command.trim())?.toKString().orEmpty()
         if (native.contains("See also:")) return "NoHelp:" + native.substringAfter("See also:").trim()
         val suggestions = HelpParser.search(command).take(9)
         return if (suggestions.isEmpty()) "" else "NoHelp:" + suggestions.mapIndexed { i, name -> "${i + 1}/ $name" }.joinToString(" ")
@@ -71,10 +67,8 @@ object GiacEngine {
         xmax: Double = 10.0, samples: Int = 500
     ): List<Pair<Double, Double>> {
         if (!init()) return emptyList()
-        val raw = memScoped {
-            calcora_engine_plot_sample(expr.cstr.ptr, varName.cstr.ptr, xmin, xmax, samples)
-                ?.toKString().orEmpty()
-        }
+        val raw = calcora_engine_plot_sample(expr, varName, xmin, xmax, samples)
+            ?.toKString().orEmpty()
         return runCatching {
             val array = JSONArray(raw)
             List(array.length()) { index ->

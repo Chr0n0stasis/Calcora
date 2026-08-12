@@ -4,6 +4,7 @@ package dev.libchara.calcora.data
 
 import dev.libchara.calcora.BuildConfig
 import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.get
 import kotlinx.cinterop.reinterpret
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
@@ -11,6 +12,8 @@ import platform.Foundation.NSData
 import platform.Foundation.NSMutableURLRequest
 import platform.Foundation.NSURL
 import platform.Foundation.NSURLSession
+import platform.Foundation.dataTaskWithRequest
+import platform.Foundation.setValue
 import kotlin.coroutines.resume
 
 data class ReleaseInfo(val version: String, val pageUrl: String)
