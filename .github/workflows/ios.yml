@@ -2,7 +2,6 @@ name: Build iOS
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -15,7 +14,7 @@ concurrency:
 
 jobs:
   build-ios:
-    name: Unsigned iOS Simulator app
+    name: Unsigned iOS IPA
     runs-on: macos-15
     timeout-minutes: 120
 
@@ -39,14 +38,14 @@ jobs:
           cmake --version
           java -version
 
-      - name: Build unsigned iOS Simulator app
+      - name: Build unsigned iOS device app
         run: |
           set -o pipefail
           xcodebuild \
             -project iosApp/CalcoraIOS.xcodeproj \
             -target CalcoraIOS \
             -configuration Release \
-            -sdk iphonesimulator \
+            -sdk iphoneos \
             -arch arm64 \
             ONLY_ACTIVE_ARCH=YES \
             CODE_SIGNING_ALLOWED=NO \
@@ -55,18 +54,22 @@ jobs:
             OBJROOT="$RUNNER_TEMP/ios-obj" \
             clean build
 
-      - name: Package app
+      - name: Package unsigned IPA
         run: |
-          APP_PATH="$(find "$RUNNER_TEMP/ios-build" -type d -name CalcoraIOS.app -print -quit)"
+          APP_PATH="$(find "$RUNNER_TEMP/ios-build" -path "*/Release-iphoneos/CalcoraIOS.app" -type d -print -quit)"
           test -n "$APP_PATH"
-          ditto -c -k --sequesterRsrc --keepParent \
-            "$APP_PATH" \
-            "$RUNNER_TEMP/Calcora-iOS-Simulator.zip"
+          IPA_ROOT="$RUNNER_TEMP/ipa"
+          mkdir -p "$IPA_ROOT/Payload"
+          ditto "$APP_PATH" "$IPA_ROOT/Payload/CalcoraIOS.app"
+          (cd "$IPA_ROOT" && zip -qry "$RUNNER_TEMP/Calcora-unsigned.ipa" Payload)
+          unzip -t "$RUNNER_TEMP/Calcora-unsigned.ipa"
+          unzip -Z1 "$RUNNER_TEMP/Calcora-unsigned.ipa" \
+            | grep -q '^Payload/CalcoraIOS.app/Info.plist$'
 
-      - name: Upload app
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Calcora-iOS-Simulator
-          path: ${{ runner.temp }}/Calcora-iOS-Simulator.zip
+          name: Calcora-unsigned-IPA
+          path: ${{ runner.temp }}/Calcora-unsigned.ipa
           if-no-files-found: error
           retention-days: 14
