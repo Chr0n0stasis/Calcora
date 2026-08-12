@@ -61,6 +61,7 @@ import org.jetbrains.compose.resources.StringResource
 import platform.Foundation.NSLocale
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.currentLocale
+import platform.Foundation.languageCode
 import platform.UIKit.UIViewController
 
 fun MainViewController(): UIViewController = ComposeUIViewController { CalcoraApp() }
