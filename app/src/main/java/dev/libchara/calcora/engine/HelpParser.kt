@@ -5,7 +5,19 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Locale
 
-data class HelpEntry(val name: String, val description: String, val related: List<String>, val examples: String)
+data class HelpEntry(
+    val name: String,
+    val description: String,
+    val related: List<String>,
+    val examples: String,
+    val signature: String = ""
+) {
+    val exampleLines: List<String>
+        get() = examples.lineSequence().map(String::trim).filter(String::isNotBlank).toList()
+
+    val syntax: String
+        get() = if (signature.isBlank()) "$name(…)" else "$name($signature)"
+}
 
 object HelpParser {
     internal var loaded = false
@@ -39,18 +51,26 @@ object HelpParser {
             BufferedReader(InputStreamReader(inputStream)).use { reader ->
                 var currentName = ""
                 var desc = ""
+                var signature = ""
                 val related = mutableListOf<String>()
                 val examples = StringBuilder()
                 var inBody = false
 
                 fun saveCurrent() {
                     if (currentName.isBlank()) return
-                    val parts = currentName.split(" ", limit = 2)
-                    val name = parts[0]
-                    val entry = HelpEntry(name, desc.trim(), related.toList(), examples.toString().trim())
-                    helpMap[name] = entry
-                    if (parts.size > 1) helpMap[parts[1]] = entry.copy(name = parts[1])
-                    allNames.add(name)
+                    val aliases = currentName.split(Regex("\\s+")).filter(String::isNotBlank)
+                    val name = aliases.first()
+                    val entry = HelpEntry(
+                        name = name,
+                        description = desc.trim(),
+                        related = related.distinct(),
+                        examples = examples.toString().trim(),
+                        signature = signature.trim()
+                    )
+                    aliases.forEach { alias ->
+                        helpMap[alias] = entry.copy(name = alias)
+                        if (alias !in allNames) allNames.add(alias)
+                    }
                 }
 
                 reader.forEachLine { line ->
@@ -58,7 +78,7 @@ object HelpParser {
                         line.startsWith("# ") -> {
                             saveCurrent()
                             currentName = line.removePrefix("# ").trim()
-                            desc = ""; related.clear(); examples.clear()
+                            desc = ""; signature = ""; related.clear(); examples.clear()
                             inBody = true
                         }
                         inBody && line.isNotEmpty() && line[0] in '1'..'9' && line.length > 1 && line[1] == ' ' -> {
@@ -75,7 +95,7 @@ object HelpParser {
                             val name = rest.split(" ", limit = 2).firstOrNull()?.trim() ?: ""
                             if (name.isNotBlank() && name.all { it.isLetterOrDigit() || it == '_' }) related.add(name)
                         }
-                        line.startsWith("0 ") -> Unit
+                        line.startsWith("0 ") -> signature = line.removePrefix("0 ").trim()
                         inBody && line.startsWith("3 ") -> Unit
                         inBody && line.startsWith("4 ") -> Unit
                         inBody && line.startsWith("8 ") -> Unit
@@ -90,7 +110,7 @@ object HelpParser {
                 saveCurrent()
             }
             indexedNames.addAll(allNames.map { IndexedName(it, it.lowercase(Locale.ROOT)) })
-            sortedNames.addAll(allNames.sorted())
+            sortedNames.addAll(allNames.distinct().sortedWith(String.CASE_INSENSITIVE_ORDER))
             loaded = true; isReady.value = true
         } catch (_: Exception) {}
     }

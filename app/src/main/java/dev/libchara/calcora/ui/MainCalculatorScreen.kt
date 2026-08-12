@@ -7,8 +7,13 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -38,7 +43,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.IconButton
@@ -62,6 +66,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 
 
 import androidx.compose.ui.text.TextStyle
@@ -114,6 +119,7 @@ fun MainCalculatorScreen(
     var varsExpanded by remember { mutableStateOf(false) }
     var fxExpanded by remember { mutableStateOf(false) }
     var giacDebugEnabled by rememberSaveable { mutableStateOf(false) }
+    var previewPlotData by remember { mutableStateOf(calcResult?.plotData.orEmpty()) }
 
     var evaluating by remember { mutableStateOf(false) }
     var showSpinner by remember { mutableStateOf(false) }
@@ -152,6 +158,20 @@ fun MainCalculatorScreen(
     fun resultMath(calcResult: CalcResult): Pair<String, MathSource> =
         if (!calcResult.isError && calcResult.latex.isNotBlank()) calcResult.latex to MathSource.Latex
         else calcResult.primary to MathSource.Xcas
+
+    fun updateInput(next: TextFieldValue) {
+        input = next
+        onInputChange(next)
+        if (next.text.isEmpty() && result != null) {
+            result = null
+            resultDialog = false
+            onResultChange(null)
+        }
+    }
+
+    LaunchedEffect(result?.isPlot, result?.plotData) {
+        if (result?.isPlot == true) previewPlotData = result?.plotData.orEmpty()
+    }
 
 LaunchedEffect(restoreExpression) {
         val expression = restoreExpression
@@ -298,12 +318,21 @@ LaunchedEffect(restoreExpression) {
                                 color = colors.onSurface.copy(alpha = 0.5f),
                                 modifier = Modifier.fillMaxWidth().clickable { input = TextFieldValue(line.input); onInputChange(input) }
                             )
-                            val (historyResultSource, historyResultKind) = resultMath(line.result)
-                            NaturalMathView(
-                                source = historyResultSource, sourceKind = historyResultKind, fontSize = 15f,
-                                color = if (line.result.isError) colors.error.copy(alpha = 0.65f) else colors.primary.copy(alpha = 0.75f),
-                                modifier = Modifier.fillMaxWidth().clickable { input = TextFieldValue(line.result.primary); onInputChange(input) }
-                            )
+                            if (line.result.isPlot) {
+                                Text(
+                                    text = stringResource(R.string.btn_view_plot) + "  ›",
+                                    fontSize = 13.sp,
+                                    color = colors.primary.copy(alpha = 0.75f),
+                                    modifier = Modifier.clickable { onPlotRequest(line.result.plotData) }.padding(vertical = 3.dp)
+                                )
+                            } else {
+                                val (historyResultSource, historyResultKind) = resultMath(line.result)
+                                NaturalMathView(
+                                    source = historyResultSource, sourceKind = historyResultKind, fontSize = 15f,
+                                    color = if (line.result.isError) colors.error.copy(alpha = 0.65f) else colors.primary.copy(alpha = 0.75f),
+                                    modifier = Modifier.fillMaxWidth().clickable { input = TextFieldValue(line.result.primary); onInputChange(input) }
+                                )
+                            }
                             Spacer(Modifier.height(1.dp))
                             Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(colors.onSurface.copy(alpha = 0.08f)))
                         }
@@ -333,14 +362,46 @@ LaunchedEffect(restoreExpression) {
                             onCopy = { clipboard.setText(AnnotatedString(engineCommand)) }
                         )
                     }
+                AnimatedVisibility(
+                    visible = result?.isPlot == true,
+                    enter = expandVertically(
+                        animationSpec = spring(
+                            dampingRatio = 0.88f,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        expandFrom = Alignment.Bottom
+                    ) + fadeIn(tween(180)) + scaleIn(
+                        animationSpec = spring(
+                            dampingRatio = 0.88f,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        initialScale = 0.96f,
+                        transformOrigin = TransformOrigin(0.5f, 1f)
+                    ),
+                    exit = shrinkVertically(
+                        animationSpec = tween(210, easing = FastOutSlowInEasing),
+                        shrinkTowards = Alignment.Bottom
+                    ) + fadeOut(tween(150)) + scaleOut(
+                        animationSpec = tween(190, easing = FastOutSlowInEasing),
+                        targetScale = 0.97f,
+                        transformOrigin = TransformOrigin(0.5f, 1f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val displayedPlotData = result?.plotData
+                        ?.takeIf { result?.isPlot == true }
+                        ?: previewPlotData
+                    PlotPreviewCard(
+                        plotData = displayedPlotData,
+                        onClick = { onPlotRequest(displayedPlotData) },
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    if (input.text.isNotEmpty()) Text("×", fontSize = 16.sp, color = colors.onSurface.copy(alpha = 0.3f), modifier = Modifier.clickable { input = TextFieldValue(""); onInputChange(TextFieldValue("")) }.padding(end = 8.dp, bottom = 2.dp))
+                    if (input.text.isNotEmpty()) Text("×", fontSize = 16.sp, color = colors.onSurface.copy(alpha = 0.3f), modifier = Modifier.clickable { updateInput(TextFieldValue("")) }.padding(end = 8.dp, bottom = 2.dp))
                     NaturalMathEditor(
                         value = input,
-                        onValueChange = {
-                            input = it
-                            onInputChange(it)
-                        },
+                        onValueChange = ::updateInput,
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                         fontSize = 25f,
                         syntaxHighlighting = syntaxHighlighting,
@@ -348,36 +409,31 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                     )
                 }
                 Spacer(Modifier.height(4.dp))
-                AnimatedContent(
-                    targetState = result?.let { resultMath(it) } ?: ("" to MathSource.Xcas),
-                    transitionSpec = { (fadeIn(tween(200)) + slideInVertically(tween(200)) { it / 8 }).togetherWith(fadeOut(tween(150))) },
-                    label = "result", modifier = Modifier.fillMaxWidth().clickable { if (result?.primary?.isNotBlank() == true) resultDialog = true }
-                ) { (text, sourceKind) ->
-                    val resultSize = when { text.length > 40 -> 18.sp; text.length > 20 -> 22.sp; else -> 26.sp }
-                    NaturalMathView(
-                        source = text,
-                        sourceKind = sourceKind,
-                        fontSize = resultSize.value,
-                        color = if (result?.isError == true) colors.error else colors.primary,
-                        modifier = Modifier.fillMaxWidth(), minHeight = 42.dp
-                    )
-                }
-                result?.numeric?.takeIf { it.isNotBlank() && it != result?.primary && result?.isError != true }?.let { num ->
-                    val tn = result?.numericLatex?.takeIf { it.isNotBlank() } ?: trunc(num)
-                    val numericKind = if (result?.numericLatex.isNullOrBlank()) MathSource.Xcas else MathSource.Latex
-                    androidx.compose.animation.AnimatedVisibility(
-                        visible = true,
-                        enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 8 },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        NaturalMathView(tn, sourceKind = numericKind, fontSize = 14f, color = colors.onSurfaceVariant, modifier = Modifier.fillMaxWidth())
+                if (result?.isPlot != true) {
+                    AnimatedContent(
+                        targetState = result?.let { resultMath(it) } ?: ("" to MathSource.Xcas),
+                        transitionSpec = { (fadeIn(tween(200)) + slideInVertically(tween(200)) { it / 8 }).togetherWith(fadeOut(tween(150))) },
+                        label = "result", modifier = Modifier.fillMaxWidth().clickable { if (result?.primary?.isNotBlank() == true) resultDialog = true }
+                    ) { (text, sourceKind) ->
+                        val resultSize = when { text.length > 40 -> 18.sp; text.length > 20 -> 22.sp; else -> 26.sp }
+                        NaturalMathView(
+                            source = text,
+                            sourceKind = sourceKind,
+                            fontSize = resultSize.value,
+                            color = if (result?.isError == true) colors.error else colors.primary,
+                            modifier = Modifier.fillMaxWidth(), minHeight = 42.dp
+                        )
                     }
-                }
-                val plotData = result?.plotData?.takeIf { result?.isPlot == true }.orEmpty()
-                if (plotData.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    Button(onClick = { onPlotRequest(result?.plotData ?: "") }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 6.dp)) {
-                        Text(stringResource(R.string.btn_view_plot), fontSize = 14.sp)
+                    result?.numeric?.takeIf { it.isNotBlank() && it != result?.primary && result?.isError != true }?.let { num ->
+                        val tn = result?.numericLatex?.takeIf { it.isNotBlank() } ?: trunc(num)
+                        val numericKind = if (result?.numericLatex.isNullOrBlank()) MathSource.Xcas else MathSource.Latex
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn(tween(250)) + slideInVertically(tween(250)) { it / 8 },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            NaturalMathView(tn, sourceKind = numericKind, fontSize = 14f, color = colors.onSurfaceVariant, modifier = Modifier.fillMaxWidth())
+                        }
                     }
                 }
                 } // end inner Column
@@ -507,11 +563,10 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                             label = key.label, role = key.role,
                             onClick = {
                                 when (key.label) {
-                                    "AC" -> { input = TextFieldValue(""); result = null; calcHistory.clear(); onInputChange(TextFieldValue("")); onResultChange(null) }
+                                    "AC" -> { updateInput(TextFieldValue("")); calcHistory.clear() }
                                     "⌫" -> {
                                         val edited = NaturalMathEditing.backspace(input.text, input.selection.start, input.selection.end)
-                                        input = TextFieldValue(edited.text, selection = androidx.compose.ui.text.TextRange(edited.selectionStart))
-                                        onInputChange(input)
+                                        updateInput(TextFieldValue(edited.text, selection = androidx.compose.ui.text.TextRange(edited.selectionStart)))
                                     }
                                     "EXE" -> evaluate()
                                     "\u00F7" -> insert("/")
@@ -524,8 +579,7 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                             modifier = Modifier.weight(if (isWide) 2.1f else 1f),
                             onLongClick = if (key.label == "⌫") {
                                 {
-                                    input = TextFieldValue("")
-                                    onInputChange(input)
+                                    updateInput(TextFieldValue(""))
                                 }
                             } else null
                         )

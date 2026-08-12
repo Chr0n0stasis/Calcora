@@ -44,7 +44,7 @@ class NaturalMathFormatterTest {
     }
 
     @Test
-    fun parsesIntegralSumAndDerivativeFunctionSyntaxAsNaturalStructures() {
+    fun parsesCalculusFunctionSyntaxAsNaturalStructures() {
         val integral = NaturalMath.parse("integrate(x^2,x,0,1)")
         assertTrue(integral is MathNode.Integral)
         integral as MathNode.Integral
@@ -60,6 +60,15 @@ class NaturalMathFormatterTest {
         val derivative = NaturalMath.parse("diff(sin(x),x,2)")
         assertTrue(derivative is MathNode.Derivative)
         assertEquals("d^(2)/d(x)^(2)(sin(x))", NaturalMathFormatter.format("diff(sin(x),x,2)"))
+
+        val limit = NaturalMath.parse("limit(sin(x)/x,x,0)")
+        assertTrue(limit is MathNode.Limit)
+        assertEquals("lim_(x→0)((sin(x))/(x))", NaturalMathFormatter.format("limit(sin(x)/x,x,0)"))
+        assertEquals("lim_(x→0)((sin(x))/(x))", NaturalMathFormatter.format("limit(sin(x)/x,x=0)"))
+        assertEquals(
+            "lim_(x→0^(-))(exp((1)/(x)))",
+            NaturalMathFormatter.format("limit(exp(1/x),x,0,-1)")
+        )
     }
 
     @Test
@@ -80,7 +89,8 @@ class NaturalMathFormatterTest {
     fun incompleteNaturalCalculusTemplatesNeverLoseSourceRanges() {
         listOf(
             "integrate(", "integrate(□,x", "int(1/x,x,",
-            "sum(", "sum(□,k,1,", "diff(", "diff(□,x,"
+            "sum(", "sum(□,k,1,", "diff(", "diff(□,x,",
+            "limit(", "limit(□,x=", "limit(1/x,x,0,"
         ).forEach { source -> assertTreeRanges(NaturalMath.parse(source), source.length) }
     }
 
@@ -105,6 +115,11 @@ class NaturalMathFormatterTest {
         val derivative = "diff(sin(x),x,2)"
         assertEquals(13, NaturalMathEditing.moveHorizontally(derivative, 5, -1).selectionStart)
         assertEquals(5, NaturalMathEditing.moveHorizontally(derivative, 13, 1).selectionStart)
+
+        val limit = "limit(sin(x)/x,x,0)"
+        assertEquals(18, NaturalMathEditing.moveHorizontally(limit, 6, -1).selectionStart)
+        assertEquals(6, NaturalMathEditing.moveHorizontally(limit, 18, 1).selectionStart)
+        assertEquals(limit.length, NaturalMathEditing.moveHorizontally(limit, 14, 1).selectionStart)
     }
 
     @Test
@@ -474,6 +489,12 @@ class NaturalMathFormatterTest {
                 assertTreeRanges(node.expression, sourceLength)
                 node.variable?.let { assertTreeRanges(it, sourceLength) }
                 node.order?.let { assertTreeRanges(it, sourceLength) }
+            }
+            is MathNode.Limit -> {
+                assertTreeRanges(node.expression, sourceLength)
+                node.variable?.let { assertTreeRanges(it, sourceLength) }
+                node.point?.let { assertTreeRanges(it, sourceLength) }
+                node.direction?.let { assertTreeRanges(it, sourceLength) }
             }
             is MathNode.Delimited -> assertTreeRanges(node.content, sourceLength)
             is MathNode.Matrix -> node.rows.flatten().forEach { assertTreeRanges(it, sourceLength) }

@@ -87,11 +87,13 @@ fun HistoryScreen(
                                     }
                                 }
                             }
-                            NaturalMathView(
-                                source = item.latex.ifBlank { item.result },
-                                sourceKind = if (item.latex.isBlank()) MathSource.Xcas else MathSource.Latex,
-                                modifier = Modifier.fillMaxWidth(), fontSize = 18f, color = colors.primary
-                            )
+                            if (!item.isPlot) {
+                                NaturalMathView(
+                                    source = item.latex.ifBlank { item.result },
+                                    sourceKind = if (item.latex.isBlank()) MathSource.Xcas else MathSource.Latex,
+                                    modifier = Modifier.fillMaxWidth(), fontSize = 18f, color = colors.primary
+                                )
+                            }
                             Text(
                                 text = item.mode.label + " \u00B7 " + item.formattedTime,
                                 style = MaterialTheme.typography.labelMedium,

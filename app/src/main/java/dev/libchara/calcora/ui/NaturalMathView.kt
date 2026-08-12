@@ -182,14 +182,19 @@ fun NaturalMathView(
     color: Color = Color.Unspecified,
     minHeight: Dp = 34.dp
 ) {
+    // Keep pathological engine output from creating a Canvas wider than Compose can represent.
+    // Plot results are handled by PlotPreviewCard, but this also protects other very large values.
+    val displaySource = remember(source) {
+        if (source.length <= 2048) source else source.take(2048) + "…"
+    }
     val resolvedColor = if (color == Color.Unspecified) MaterialTheme.colorScheme.onSurface else color
     val density = LocalDensity.current
     val context = LocalContext.current
     val fontPx = with(density) { fontSize.sp.toPx() }
     val mathTypeface = remember(context) { context.resources.getFont(R.font.ibm_3270_regular) }
-    val layout = remember(source, sourceKind, fontPx, resolvedColor, mathTypeface) {
+    val layout = remember(displaySource, sourceKind, fontPx, resolvedColor, mathTypeface) {
         MathTypesetter(resolvedColor, resolvedColor, resolvedColor, mathTypeface)
-            .layout(NaturalMath.parse(source, sourceKind), fontPx)
+            .layout(NaturalMath.parse(displaySource, sourceKind), fontPx)
     }
     val width = with(density) { (layout.width + 8.dp.toPx()).toDp() }.coerceAtLeast(1.dp)
     val height = with(density) { (layout.height + 8.dp.toPx()).toDp() }.coerceAtLeast(minHeight)
@@ -242,6 +247,7 @@ private class MathTypesetter(
         is MathNode.Integral -> integral(node, size)
         is MathNode.Summation -> summation(node, size)
         is MathNode.Derivative -> derivative(node, size)
+        is MathNode.Limit -> limit(node, size)
         is MathNode.Delimited -> delimited(node, size)
         is MathNode.Matrix -> matrix(node, size)
     }
@@ -486,6 +492,57 @@ private class MathTypesetter(
             Caret(node.start, 0f, 0f, result.height),
             Caret(node.end, result.width, 0f, result.height)
         )).distinctBy { it.offset })
+    }
+
+    private fun limit(node: MathNode.Limit, size: Float): MathLayout {
+        val directionText = node.direction?.let(::plainText)?.replace("−", "-")
+        val directionSign = when (directionText) {
+            "1", "+1" -> "+"
+            "-1" -> "−"
+            else -> null
+        }
+        val target = node.point?.let { point ->
+            if (directionSign == null || node.direction == null) point
+            else MathNode.Script(
+                base = point,
+                superscript = MathNode.Text(directionSign, node.direction.start, node.direction.end),
+                start = point.start,
+                end = node.direction.end
+            )
+        }
+        val approach = when {
+            node.variable != null && target != null -> combine(
+                listOf(
+                    box(node.variable, size * .56f),
+                    text(MathNode.Text("→", node.variable.end, target.start), size * .56f),
+                    box(target, size * .56f)
+                ) + if (node.direction != null && directionSign == null) {
+                    listOf(
+                        text(MathNode.Text(",", target.end, node.direction.start), size * .56f),
+                        box(node.direction, size * .56f)
+                    )
+                } else emptyList(),
+                size * .56f
+            )
+            node.variable != null -> box(node.variable, size * .56f)
+            target != null -> box(target, size * .56f)
+            else -> null
+        }
+        val operator = largeOperator("lim", node.start, node.end, approach, null, size * .90f)
+        val expression = horizontalPadding(box(node.expression, size), size * .18f, 0f)
+        val result = combine(listOf(operator, expression), size)
+        return result.copy(carets = (result.carets + listOf(
+            Caret(node.start, 0f, 0f, result.height),
+            Caret(node.end, result.width, 0f, result.height)
+        )).distinctBy { it.offset })
+    }
+
+    private fun plainText(node: MathNode): String? {
+        return when (node) {
+            is MathNode.Text -> node.value
+            is MathNode.Row -> node.items.map { plainText(it) ?: return null }.joinToString("")
+            else -> null
+        }
     }
 
     private fun largeOperator(

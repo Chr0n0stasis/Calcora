@@ -1,12 +1,13 @@
 package dev.libchara.calcora.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,209 +17,429 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import dev.libchara.calcora.R
-import androidx.compose.ui.unit.sp
-import dev.libchara.calcora.engine.GiacEngine
+import dev.libchara.calcora.engine.HelpEntry
 import dev.libchara.calcora.engine.HelpParser
 
-private val VIEW_LIST = Any()
+private data class HelpCategory(
+    val symbol: String,
+    @param:StringRes val title: Int,
+    @param:StringRes val description: Int,
+    val commands: List<String>
+)
+
+private val HELP_CATEGORIES = listOf(
+    HelpCategory("x²", R.string.help_category_algebra, R.string.help_category_algebra_desc,
+        listOf("solve", "factor", "expand", "simplify", "subst", "normal")),
+    HelpCategory("∫", R.string.help_category_calculus, R.string.help_category_calculus_desc,
+        listOf("diff", "integrate", "limit", "sum", "series")),
+    HelpCategory("⌁", R.string.help_category_plotting, R.string.help_category_plotting_desc,
+        listOf("plot", "plotfunc", "plotparam", "plot3d", "listplot")),
+    HelpCategory("▦", R.string.help_category_linear_algebra, R.string.help_category_linear_algebra_desc,
+        listOf("matrix", "det", "inv", "rank", "eigenvals")),
+    HelpCategory("Σ", R.string.help_category_statistics, R.string.help_category_statistics_desc,
+        listOf("mean", "median", "stddev", "variance", "quartile1")),
+    HelpCategory("{ }", R.string.help_category_lists, R.string.help_category_lists_desc,
+        listOf("makelist", "seq", "map", "select", "sort", "size"))
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun HelpScreen(contentPadding: PaddingValues, initialFunc: String?, onInsert: (String) -> Unit) {
+fun HelpScreen(
+    contentPadding: PaddingValues,
+    initialFunc: String?,
+    onInsert: (String) -> Unit
+) {
     val colors = MaterialTheme.colorScheme
-    var query by remember { mutableStateOf(initialFunc ?: "") }
-    var entryName by remember { mutableStateOf("") }
-    var rawHelp by remember { mutableStateOf("") }
-    var helpLoaded by remember { mutableStateOf(false) }
-
-    fun loadHelp(name: String) {
-        entryName = name
-        rawHelp = ""
-        helpLoaded = false
-        rawHelp = GiacEngine.help(name)
-        helpLoaded = true
-    }
-
-    androidx.compose.runtime.LaunchedEffect(initialFunc) {
-        val f = initialFunc
-        if (!f.isNullOrBlank()) loadHelp(f)
-    }
-
-    BackHandler(enabled = entryName.isNotBlank()) {
-        entryName = ""
-        rawHelp = ""
-        helpLoaded = false
-    }
-
     val helpReady = HelpParser.isReady.value
-    val scoredResults = remember(query, helpReady) {
-        GiacEngine.helpSearchScored(query.trim())
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedName by rememberSaveable { mutableStateOf<String?>(null) }
+    var showAll by rememberSaveable { mutableStateOf(false) }
+
+    fun openEntry(name: String) {
+        selectedName = name
+        showAll = false
     }
-    
 
-    val isNoHelp = rawHelp.startsWith("NoHelp:")
-    val desc = rawHelp.lines().firstOrNull { it.contains("Description:", true) }?.removePrefix("Description:")?.trim() ?: ""
-    val relRaw = rawHelp.lines().firstOrNull { it.contains("Related:", true) }?.removePrefix("Related:")?.trim() ?: ""
-    val related = relRaw.split(",", ";").map { it.trim() }.filter { it.isNotBlank() && it != entryName }
-    val exampleRaw = rawHelp.substringAfter("Examples:", "").trim().replace(Regex("^\\s+", RegexOption.MULTILINE), "").take(500)
-    val exampleLines = exampleRaw.split("\n").filter { it.isNotBlank() }
+    fun navigateBack() {
+        if (selectedName != null) selectedName = null else showAll = false
+    }
 
-    Column(modifier = Modifier.fillMaxSize().padding(contentPadding).background(colors.background)) {
-        Text(stringResource(R.string.help_title), style = MaterialTheme.typography.headlineSmall, color = colors.onBackground, modifier = Modifier.statusBarsPadding().padding(start = 14.dp, top = 8.dp, bottom = 8.dp))
+    LaunchedEffect(initialFunc) {
+        if (!initialFunc.isNullOrBlank()) {
+            query = ""
+            showAll = false
+            selectedName = initialFunc
+        }
+    }
 
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp).height(44.dp).background(colors.surfaceVariant, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
-            BasicTextField(value = query, onValueChange = { query = it; entryName = ""; rawHelp = ""; helpLoaded = false }, singleLine = true,
-                textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 15.sp, color = colors.onSurface),
-                cursorBrush = SolidColor(colors.primary),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { if (scoredResults.isNotEmpty()) loadHelp(scoredResults.first().name) }),
-                decorationBox = { inner -> Box { if (query.isEmpty()) Text(stringResource(R.string.help_search_hint), style = TextStyle(fontSize = 15.sp, color = colors.onSurfaceVariant.copy(alpha = 0.5f))); inner() } })
+    BackHandler(enabled = selectedName != null || showAll, onBack = ::navigateBack)
+
+    val results = remember(query, showAll, helpReady) {
+        if (!helpReady || (query.isBlank() && !showAll)) emptyList()
+        else HelpParser.searchScored(query.trim())
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
+        AnimatedContent(
+            targetState = selectedName,
+            transitionSpec = {
+                if (targetState != null) {
+                    (slideInHorizontally { it / 5 } + fadeIn())
+                        .togetherWith(slideOutHorizontally { -it / 8 } + fadeOut())
+                } else {
+                    (slideInHorizontally { -it / 8 } + fadeIn())
+                        .togetherWith(slideOutHorizontally { it / 5 } + fadeOut())
+                }
+            },
+            label = "help-navigation",
+            modifier = Modifier.weight(1f)
+        ) { detailName ->
+            if (detailName == null) {
+                HelpBrowser(
+                    query = query,
+                    onQueryChange = {
+                        query = it
+                        showAll = false
+                    },
+                    showAll = showAll,
+                    results = results,
+                    helpReady = helpReady,
+                    onShowAll = { showAll = true },
+                    onBackFromAll = { showAll = false },
+                    onOpenEntry = ::openEntry
+                )
+            } else {
+                HelpDetail(
+                    requestedName = detailName,
+                    onBack = ::navigateBack,
+                    onOpenEntry = ::openEntry,
+                    onInsert = onInsert
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HelpBrowser(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    showAll: Boolean,
+    results: List<HelpParser.Scored>,
+    helpReady: Boolean,
+    onShowAll: () -> Unit,
+    onBackFromAll: () -> Unit,
+    onOpenEntry: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.help_title),
+                style = MaterialTheme.typography.headlineSmall,
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
+            )
+            HelpSearchField(
+                query = query,
+                onQueryChange = onQueryChange,
+                onSearch = { results.firstOrNull()?.let { onOpenEntry(it.name) } },
+                modifier = Modifier.width(236.dp)
+            )
         }
 
-        // Outer: transition between search list and detail view
-        val outerState = if (entryName.isNotBlank()) entryName else VIEW_LIST
-        AnimatedContent(targetState = outerState, transitionSpec = { fadeIn(tween(200)).togetherWith(fadeOut(tween(150))) }, label = "help", modifier = Modifier.weight(1f)) { state ->
-            if (state === VIEW_LIST) {
-                if (scoredResults.isNotEmpty()) {
-                    val listState = rememberLazyListState()
-                    val totalItems = scoredResults.size
-                    val scrollFraction = if (totalItems > 0 && listState.layoutInfo.totalItemsCount > 0) {
-                        val firstVisible = listState.firstVisibleItemIndex.toFloat()
-                        val visibleCount = listState.layoutInfo.visibleItemsInfo.size.toFloat()
-                        (firstVisible + visibleCount / 2f) / totalItems.toFloat()
-                    } else 0f
-                    val scope = rememberCoroutineScope()
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        LazyColumn(state = listState, modifier = Modifier.padding(start = 14.dp, end = 20.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            item { Text("${scoredResults.size} " + stringResource(R.string.help_matches), style = TextStyle(fontSize = 12.sp, color = colors.onSurfaceVariant), modifier = Modifier.padding(vertical = 4.dp)) }
-                            itemsIndexed(scoredResults) { idx, scored ->
-                                Row(modifier = Modifier.fillMaxWidth().clickable { loadHelp(scored.name); query = scored.name }.padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text(scored.name, style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 15.sp, color = colors.onSurface), modifier = Modifier.weight(1f))
-                                    if (scored.score > 0) {
-                                        Text(scored.score.toString(), style = TextStyle(fontSize = 11.sp, color = colors.onSurfaceVariant.copy(alpha = 0.4f)), modifier = Modifier.padding(start = 6.dp))
-                                    }
-                                }
-                            }
-                        }
-                        // Scroll position indicator
-                        if (totalItems > listState.layoutInfo.visibleItemsInfo.size) {
-                            Canvas(modifier = Modifier.fillMaxHeight().width(4.dp).align(Alignment.CenterEnd)) {
-                                val barHeight = size.height * (listState.layoutInfo.visibleItemsInfo.size.toFloat() / totalItems.toFloat()).coerceIn(0.05f, 1f)
-                                val barTop = size.height * scrollFraction.coerceIn(0f, 1f) - barHeight / 2f
-                                drawRoundRect(
-                                    color = colors.onSurfaceVariant.copy(alpha = 0.2f),
-                                    topLeft = Offset(0f, barTop.coerceIn(0f, size.height - barHeight)),
-                                    size = Size(size.width, barHeight),
-                                    cornerRadius = CornerRadius(2f, 2f)
+        when {
+            !helpReady -> HelpLoadingState()
+            query.isNotBlank() || showAll -> HelpResults(
+                results = results,
+                showAll = showAll,
+                onBackFromAll = onBackFromAll,
+                onOpenEntry = onOpenEntry
+            )
+            else -> HelpHome(onShowAll = onShowAll, onOpenEntry = onOpenEntry)
+        }
+    }
+}
+
+@Composable
+private fun HelpSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier,
+        singleLine = true,
+        shape = RoundedCornerShape(18.dp),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+        placeholder = { Text(stringResource(R.string.help_search_hint)) },
+        leadingIcon = {
+            Text("⌕", fontSize = 25.sp, color = MaterialTheme.colorScheme.primary)
+        },
+        trailingIcon = if (query.isNotEmpty()) {
+            {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Text("×", fontSize = 22.sp)
+                }
+            }
+        } else null,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { onSearch() })
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HelpHome(onShowAll: () -> Unit, onOpenEntry: (String) -> Unit) {
+    val availableCategories = remember(HelpParser.isReady.value) {
+        HELP_CATEGORIES.map { category ->
+            category.copy(commands = category.commands.filter { HelpParser.lookup(it) != null })
+        }.filter { it.commands.isNotEmpty() }
+    }
+    val commandCount = remember(HelpParser.isReady.value) { HelpParser.getAllNames().size }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text(
+                text = stringResource(R.string.help_explore),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
+        }
+        items(availableCategories, key = { it.title }) { category ->
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = category.symbol,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                         }
-                    }
-                } else {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(stringResource(R.string.help_empty), color = colors.onSurfaceVariant) }
-                }
-            } else {
-                LazyColumn(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    item {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-Text(state as String, style = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.primary), modifier = Modifier.weight(1f))
-                            Button(onClick = { onInsert(state + "(") }, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)) { Text(stringResource(R.string.btn_insert)) }
+                        Column(modifier = Modifier.padding(start = 12.dp)) {
+                            Text(stringResource(category.title), style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                stringResource(category.description),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-                    item {
-                        // Inner: transition between loading and content
-                        AnimatedContent(targetState = when { !helpLoaded -> "loading"; isNoHelp -> "suggest"; rawHelp.isNotBlank() -> "done"; else -> "empty" },
-                            transitionSpec = { fadeIn(tween(150)).togetherWith(fadeOut(tween(100))) },
-                            label = "detail-content"
-                        ) { innerState ->
-                            when (innerState) {
-                                "loading" -> Text(stringResource(R.string.help_loading), color = colors.onSurfaceVariant)
-                                "empty" -> Text(stringResource(R.string.help_no_result) + " '$state'", color = colors.error)
-                                "suggest" -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    val suggestions = rawHelp.removePrefix("NoHelp:").trim()
-                                    Text(stringResource(R.string.help_no_result) + " '$state'", color = colors.error)
-                                    val items = try {
-                                        Regex("""\d+/\s*(\S+)""").findAll(suggestions).map { it.groupValues[1] }.toList()
-                                    } catch (_: Exception) { emptyList() }
-                                    if (items.isNotEmpty()) {
-                                        Text(stringResource(R.string.help_see_also), style = TextStyle(fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primary))
-                                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            items.forEach { sug ->
-                                                AssistChip(onClick = { loadHelp(sug); query = sug }, label = { Text(sug, fontSize = 13.sp, fontFamily = FontFamily.Monospace, color = colors.onSurface) }, shape = RoundedCornerShape(12.dp))
-                                            }
-                                        }
-                                    }
-                                }
-                                else -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    if (desc.isNotBlank()) {
-                                        Text(stringResource(R.string.help_desc), style = TextStyle(fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primary))
-                                        Text(desc, style = TextStyle(fontSize = 15.sp, color = colors.onBackground))
-                                    }
-                                    if (related.isNotEmpty()) {
-                                        Text(stringResource(R.string.help_related), style = TextStyle(fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primary))
-                                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            related.forEach { rel -> AssistChip(onClick = { loadHelp(rel); query = rel }, label = { Text(rel, fontSize = 13.sp, fontFamily = FontFamily.Monospace, color = colors.onSurface) }, shape = RoundedCornerShape(12.dp)) }
-                                        }
-                                    }
-                                    if (exampleLines.isNotEmpty()) {
-                                        Text(stringResource(R.string.help_examples), style = TextStyle(fontWeight = FontWeight.Medium, fontSize = 13.sp, color = colors.primary))
-                                        SelectionContainer {
-                                            Column(modifier = Modifier.fillMaxWidth().background(colors.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(10.dp)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                exampleLines.forEach { line ->
-                                                    Text(line.trim(), style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = colors.onSurfaceVariant),
-                                                        modifier = Modifier.fillMaxWidth().clickable { onInsert(line.trim()) }.padding(horizontal = 6.dp, vertical = 3.dp))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                    FlowRow(
+                        modifier = Modifier.padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        category.commands.forEach { command ->
+                            AssistChip(
+                                onClick = { onOpenEntry(command) },
+                                label = { Text(command, fontFamily = FontFamily.Monospace) },
+                                shape = RoundedCornerShape(12.dp)
+                            )
                         }
                     }
-                    item { Spacer(Modifier.height(32.dp)) }
                 }
             }
+        }
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onShowAll),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.help_all_commands), style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            stringResource(R.string.help_command_count, commandCount),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text("→", fontSize = 22.sp, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+        item { Spacer(Modifier.height(8.dp)) }
+    }
+}
+
+@Composable
+private fun HelpResults(
+    results: List<HelpParser.Scored>,
+    showAll: Boolean,
+    onBackFromAll: () -> Unit,
+    onOpenEntry: (String) -> Unit
+) {
+    if (results.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                Text("⌕", fontSize = 40.sp, color = MaterialTheme.colorScheme.outline)
+                Text(
+                    stringResource(R.string.help_no_matches_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                Text(
+                    stringResource(R.string.help_no_matches_desc),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showAll) {
+                    TextButton(onClick = onBackFromAll, contentPadding = PaddingValues(end = 10.dp)) {
+                        Text("‹  " + stringResource(R.string.btn_back))
+                    }
+                }
+                Text(
+                    stringResource(R.string.help_result_count, results.size),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        items(results, key = { it.name }) { scored ->
+            val entry = remember(scored.name) { HelpParser.lookup(scored.name) }
+            Surface(
+                modifier = Modifier.fillMaxWidth().clickable { onOpenEntry(scored.name) },
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = scored.name,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        entry?.signature?.takeIf(String::isNotBlank)?.let { signature ->
+                            Text(
+                                text = "$scored.name($signature)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                        entry?.description?.takeIf(String::isNotBlank)?.let { description ->
+                            Text(
+                                text = description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 5.dp)
+                            )
+                        }
+                    }
+                    Text("›", fontSize = 24.sp, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HelpLoadingState() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.5.dp)
+            Text(
+                stringResource(R.string.help_loading),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp)
+            )
         }
     }
 }

@@ -54,6 +54,14 @@ sealed interface MathNode {
         override val start: Int,
         override val end: Int
     ) : MathNode
+    data class Limit(
+        val expression: MathNode,
+        val variable: MathNode? = null,
+        val point: MathNode? = null,
+        val direction: MathNode? = null,
+        override val start: Int,
+        override val end: Int
+    ) : MathNode
     data class Delimited(
         val left: String,
         val content: MathNode,
@@ -153,6 +161,12 @@ object NaturalMath {
                     visit(node.expression)
                     node.variable?.let(::visit)
                     node.order?.let(::visit)
+                }
+                is MathNode.Limit -> {
+                    visit(node.expression)
+                    node.variable?.let(::visit)
+                    node.point?.let(::visit)
+                    node.direction?.let(::visit)
                 }
                 is MathNode.Delimited -> visit(node.content)
                 is MathNode.Matrix -> node.rows.flatten().forEach(::visit)
@@ -489,6 +503,12 @@ object NaturalMathEditing {
                     node.variable?.let(::visit)
                     node.order?.let(::visit)
                 }
+                is MathNode.Limit -> {
+                    visit(node.expression)
+                    node.variable?.let(::visit)
+                    node.point?.let(::visit)
+                    node.direction?.let(::visit)
+                }
                 is MathNode.Matrix -> node.rows.flatten().forEach(::visit)
                 is MathNode.Text -> Unit
             }
@@ -533,6 +553,12 @@ object NaturalMathEditing {
                     node.variable?.let(::visit)
                     node.order?.let(::visit)
                 }
+                is MathNode.Limit -> {
+                    visit(node.expression)
+                    node.variable?.let(::visit)
+                    node.point?.let(::visit)
+                    node.direction?.let(::visit)
+                }
                 is MathNode.Delimited -> visit(node.content)
                 is MathNode.Matrix -> node.rows.flatten().forEach(::visit)
                 is MathNode.Text -> Unit
@@ -556,6 +582,11 @@ object NaturalMathEditing {
                 }
                 is MathNode.Derivative -> {
                     val visible = listOfNotNull(node.order, node.variable, node.expression)
+                    add(node to visible)
+                    visible.forEach(::visit)
+                }
+                is MathNode.Limit -> {
+                    val visible = listOfNotNull(node.variable, node.point, node.direction, node.expression)
                     add(node to visible)
                     visible.forEach(::visit)
                 }
@@ -617,6 +648,12 @@ object NaturalMathEditing {
                     node.variable?.let(::visit)
                     node.order?.let(::visit)
                 }
+                is MathNode.Limit -> {
+                    visit(node.expression)
+                    node.variable?.let(::visit)
+                    node.point?.let(::visit)
+                    node.direction?.let(::visit)
+                }
                 is MathNode.Delimited -> visit(node.content)
                 is MathNode.Matrix -> node.rows.flatten().forEach(::visit)
                 is MathNode.Text -> Unit
@@ -662,6 +699,12 @@ object NaturalMathEditing {
                     visit(node.expression)
                     node.variable?.let(::visit)
                     node.order?.let(::visit)
+                }
+                is MathNode.Limit -> {
+                    visit(node.expression)
+                    node.variable?.let(::visit)
+                    node.point?.let(::visit)
+                    node.direction?.let(::visit)
                 }
                 is MathNode.Matrix -> node.rows.flatten().forEach(::visit)
                 is MathNode.Text -> Unit
@@ -734,6 +777,7 @@ private class XcasParser(private val source: String) {
                 "integrate", "int" -> integral(node.start, arguments)
                 "sum" -> summation(node.start, arguments)
                 "diff", "derive", "derivative" -> derivative(node.start, arguments)
+                "limit", "limite" -> limit(node.start, arguments)
                 else -> row(listOf(node, arguments), node.start, arguments.end)
             }
         }
@@ -773,6 +817,30 @@ private class XcasParser(private val source: String) {
             start = start,
             end = arguments.end
         )
+    }
+
+    private fun limit(start: Int, arguments: MathNode.Delimited): MathNode.Limit {
+        val values = splitArguments(arguments)
+        val expression = values.getOrElse(0) {
+            MathNode.Text("", arguments.content.start, arguments.content.start)
+        }
+        val compactBinding = values.getOrNull(1)?.let(::limitBinding)
+        return MathNode.Limit(
+            expression = expression,
+            variable = compactBinding?.first ?: values.getOrNull(1),
+            point = compactBinding?.second ?: values.getOrNull(2),
+            direction = if (compactBinding != null) values.getOrNull(2) else values.getOrNull(3),
+            start = start,
+            end = arguments.end
+        )
+    }
+
+    private fun limitBinding(node: MathNode): Pair<MathNode, MathNode>? {
+        val items = (node as? MathNode.Row)?.items ?: return null
+        val equals = items.indexOfFirst { it is MathNode.Text && it.value == "=" }
+        if (equals <= 0 || equals >= items.lastIndex) return null
+        return row(items.take(equals), node.start, items[equals - 1].end) to
+            row(items.drop(equals + 1), items[equals + 1].start, node.end)
     }
 
     private fun parseAtom(): MathNode {

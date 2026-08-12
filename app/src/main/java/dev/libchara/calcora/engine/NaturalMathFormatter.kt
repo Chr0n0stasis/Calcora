@@ -49,6 +49,25 @@ object NaturalMathFormatter {
             node.order?.let { append("^(").append(flatten(it)).append(')') }
             append('(').append(flatten(node.expression)).append(')')
         }
+        is MathNode.Limit -> buildString {
+            append("lim")
+            if (node.variable != null || node.point != null) {
+                append("_(")
+                node.variable?.let { append(flatten(it)) }
+                if (node.variable != null && node.point != null) append('→')
+                node.point?.let { append(flatten(it)) }
+                node.direction?.let { direction ->
+                    val raw = flatten(direction).replace("−", "-")
+                    when (raw) {
+                        "1", "+1" -> append("^(+)")
+                        "-1" -> append("^(-)")
+                        else -> append(",").append(raw)
+                    }
+                }
+                append(')')
+            }
+            append('(').append(flatten(node.expression)).append(')')
+        }
         is MathNode.Delimited -> node.left + flatten(node.content) + node.right
         is MathNode.Matrix -> node.rows.joinToString(prefix = "[", postfix = "]") { cells ->
             cells.joinToString(prefix = "[", postfix = "]") { flatten(it) }

@@ -9,13 +9,16 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,7 +80,120 @@ fun PlotOverlay(plotData: String, visible: Boolean, onDismiss: () -> Unit) {
         visible = visible,
         enter = fadeIn() + slideInVertically { it / 2 },
         exit = fadeOut() + slideOutVertically { it / 2 }
-    ) { PlotContent(plotData = plotData, onDismiss = onDismiss) }
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // A full-screen modal barrier remains present for the complete exit
+            // animation, so a quick second tap cannot reach controls underneath.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) { detectTapGestures(onTap = {}) }
+            )
+            PlotContent(plotData = plotData, onDismiss = onDismiss)
+        }
+    }
+}
+
+@Composable
+fun PlotPreviewCard(
+    plotData: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val items = remember(plotData) { parsePlotData(plotData) }
+    val is3D = items.any { it.type == "surface3d" }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(118.dp)
+            .clickable(onClick = onClick),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        color = colors.surfaceVariant.copy(alpha = 0.55f),
+        tonalElevation = 2.dp
+    ) {
+        Column {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(colors.surfaceVariant.copy(alpha = 0.35f))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                if (items.isEmpty()) return@Canvas
+
+                val axisColor = colors.onSurfaceVariant.copy(alpha = 0.55f)
+                if (is3D) {
+                    val item = items.first { it.type == "surface3d" }
+                    val rx = -0.6f
+                    val rz = 0.8f
+                    val xCenter = (item.xminVal + item.xmaxVal) / 2.0
+                    val yCenter = (item.yminVal + item.ymaxVal) / 2.0
+                    val zCenter = (item.zMin + item.zMax) / 2.0
+                    val span = maxOf(
+                        item.xmaxVal - item.xminVal,
+                        item.ymaxVal - item.yminVal,
+                        item.zMax - item.zMin,
+                        1e-6
+                    )
+                    val scale = (minOf(size.width, size.height) / span * 0.68).toFloat()
+                    val projectedCenterX = xCenter * cos(rz) - yCenter * sin(rz)
+                    val rotatedCenterY = xCenter * sin(rz) + yCenter * cos(rz)
+                    val projectedCenterY = rotatedCenterY * cos(rx) - zCenter * sin(rx)
+                    val origin = Offset(
+                        size.width / 2f - projectedCenterX.toFloat() * scale,
+                        size.height / 2f + projectedCenterY.toFloat() * scale
+                    )
+                    drawSurface3D(item, origin, scale, rx, rz, false, curveColors.first())
+                } else {
+                    val points = items.flatMap { it.points }.filter { (x, y) -> x.isFinite() && y.isFinite() }
+                    if (points.isNotEmpty()) {
+                        val xMin = points.minOf { it.first }
+                        val xMax = points.maxOf { it.first }
+                        val yMin = points.minOf { it.second }
+                        val yMax = points.maxOf { it.second }
+                        val xSpan = (xMax - xMin).coerceAtLeast(1e-6)
+                        val ySpan = (yMax - yMin).coerceAtLeast(xSpan * 0.28)
+                        val scale = minOf(size.width / xSpan, size.height / ySpan).toFloat() * 0.86f
+                        val xCenter = (xMin + xMax) / 2.0
+                        val yCenter = (yMin + yMax) / 2.0
+                        val origin = Offset(
+                            size.width / 2f - xCenter.toFloat() * scale,
+                            size.height / 2f + yCenter.toFloat() * scale
+                        )
+                        if (0.0 in yMin..yMax) {
+                            drawLine(axisColor, Offset(0f, origin.y), Offset(size.width, origin.y), strokeWidth = 1f)
+                        }
+                        if (0.0 in xMin..xMax) {
+                            drawLine(axisColor, Offset(origin.x, 0f), Offset(origin.x, size.height), strokeWidth = 1f)
+                        }
+                        items.forEachIndexed { index, item ->
+                            val color = curveColors[index % curveColors.size]
+                            if (item.type == "scatter") drawScatter(item, origin, scale, color)
+                            else drawCurve(item, origin, scale, color)
+                        }
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.plot_preview),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.btn_view_plot) + "  ›",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.primary
+                )
+            }
+        }
+    }
 }
 
 private fun parsePlotData(json: String): List<PlotItem> {

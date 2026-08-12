@@ -83,8 +83,8 @@ std::string format_double(double value) {
 // Extract plot data from giac's actual graphic output.
 // Returns a JSON array of curve objects:
 // [{"var":"x","xmin":-5,"xmax":5,"pts":[[x1,y1],[x2,y2],...]}, ...]
-static giac::gen plot_pt_to_numeric(const giac::gen &pt) {
-    giac::gen npt = giac::evalf_double(pt, 1, nullptr);
+static giac::gen plot_pt_to_numeric(const giac::gen &pt, giac::context *contextptr) {
+    giac::gen npt = giac::evalf_double(pt, 1, contextptr);
     if (npt.type == giac::_CPLX || npt.type == giac::_DOUBLE_ || npt.type == giac::_ZINT || npt.type == giac::_INT_) {
         if (npt.type == giac::_CPLX || npt.type == giac::_DOUBLE_) return npt;
         return giac::gen((double)npt.val);
@@ -93,14 +93,16 @@ static giac::gen plot_pt_to_numeric(const giac::gen &pt) {
         if (pt.type == giac::_CPLX || pt.type == giac::_DOUBLE_) return pt;
         return giac::gen((double)pt.val);
     }
-    return giac::evalf(pt, 1, nullptr);
+    return giac::evalf(pt, 1, contextptr);
 }
 
-static bool plot_write_pt(std::ostringstream &out, const giac::gen &pt, bool &first, int index = -1) {
-    giac::gen npt = plot_pt_to_numeric(pt);
+static bool plot_write_pt(std::ostringstream &out, const giac::gen &pt, bool &first,
+                          giac::context *contextptr) {
+    giac::gen npt = plot_pt_to_numeric(pt, contextptr);
     double x=0,y=0; bool ok=false;
     if (npt.type == giac::_CPLX) {
-        giac::gen r=giac::re(npt,nullptr), im=giac::im(npt,nullptr);
+        giac::gen r=giac::evalf_double(giac::re(npt,contextptr), 1, contextptr);
+        giac::gen im=giac::evalf_double(giac::im(npt,contextptr), 1, contextptr);
         if (r.type==giac::_DOUBLE_ && im.type==giac::_DOUBLE_) {
             x=r._DOUBLE_val; y=im._DOUBLE_val; ok=std::isfinite(x)&&std::isfinite(y);
         }
@@ -117,7 +119,7 @@ static bool plot_write_pt(std::ostringstream &out, const giac::gen &pt, bool &fi
     return ok;
 }
 
-static std::string extract_giac_plot_data(const giac::gen &result) {
+static std::string extract_giac_plot_data(const giac::gen &result, giac::context *contextptr) {
     std::ostringstream out;
     out << "[";
 
@@ -147,15 +149,17 @@ static std::string extract_giac_plot_data(const giac::gen &result) {
             std::string var = "x"; double xmin = 0, xmax = 0;
             if (meta.type == giac::_VECT && meta.subtype == 8 && meta._VECTptr->size() >= 5) {
                 auto &mv = *meta._VECTptr;
-                if (mv[1].type == giac::_IDNT) var = mv[1].print(nullptr);
-                xmin = giac::evalf_double(mv[2],1,nullptr)._DOUBLE_val;
-                xmax = giac::evalf_double(mv[3],1,nullptr)._DOUBLE_val;
+                if (mv[1].type == giac::_IDNT) var = mv[1].print(contextptr);
+                giac::gen xmin_gen = giac::evalf_double(mv[2], 1, contextptr);
+                giac::gen xmax_gen = giac::evalf_double(mv[3], 1, contextptr);
+                if (xmin_gen.type == giac::_DOUBLE_) xmin = xmin_gen._DOUBLE_val;
+                if (xmax_gen.type == giac::_DOUBLE_) xmax = xmax_gen._DOUBLE_val;
             }
             if (!first_item) out << ",";
             out << "{\"type\":\"curve\",\"var\":\"" << json_escape(var)
                 << "\",\"xmin\":" << xmin << ",\"xmax\":" << xmax << ",\"pts\":[";
             bool first_pt = true;
-            for (const auto &pt : *chemin._VECTptr) { plot_write_pt(out, pt, first_pt); }
+            for (const auto &pt : *chemin._VECTptr) { plot_write_pt(out, pt, first_pt, contextptr); }
             out << "]}"; first_item = false;
             continue;
         }
@@ -164,7 +168,8 @@ static std::string extract_giac_plot_data(const giac::gen &result) {
         if (inner.is_symb_of_sommet(giac::at_hypersurface) || inner.is_symb_of_sommet(giac::at_hyperplan)) {
             giac::gen &f = inner._SYMBptr->feuille;
             // hypersurface can have different arg structures. Try multiple strategies.
-            giac::gen *pnt_data = nullptr;
+            const giac::gen *pnt_data = nullptr;
+            giac::gen stripped_pnt_data;
 
             // Strategy 1: f is a VECT of (data, equation, vars) — 3 elements
             if (f.type == giac::_VECT && f._VECTptr->size() >= 3) {
@@ -174,10 +179,11 @@ static std::string extract_giac_plot_data(const giac::gen &result) {
             // Strategy 2: f is a single GROUP__VECT containing a pnt wrapping the data
             if (!pnt_data && f.type == giac::_VECT && f.subtype == 5 && !f._VECTptr->empty()) {
                 giac::gen &elem = (*f._VECTptr)[0];
-                giac::gen stripped = elem;
-                while (stripped.is_symb_of_sommet(giac::at_pnt))
-                    stripped = giac::remove_at_pnt(stripped);
-                if (stripped.type == giac::_VECT && stripped.subtype == 8) pnt_data = &stripped;
+                stripped_pnt_data = elem;
+                while (stripped_pnt_data.is_symb_of_sommet(giac::at_pnt))
+                    stripped_pnt_data = giac::remove_at_pnt(stripped_pnt_data);
+                if (stripped_pnt_data.type == giac::_VECT && stripped_pnt_data.subtype == 8)
+                    pnt_data = &stripped_pnt_data;
             }
             // Strategy 3: f itself is the _PNT__VECT data
             if (!pnt_data && f.type == giac::_VECT && f.subtype == 8) pnt_data = &f;
@@ -190,16 +196,20 @@ static std::string extract_giac_plot_data(const giac::gen &result) {
             double xmin=0,ymin=0,xmax=0,ymax=0;
             std::string v1="x", v2="y";
             if (hv[1].type==giac::_VECT && hv[1]._VECTptr->size()>=2) {
-                if ((*hv[1]._VECTptr)[0].type==giac::_IDNT) v1=(*hv[1]._VECTptr)[0].print(nullptr);
-                if ((*hv[1]._VECTptr)[1].type==giac::_IDNT) v2=(*hv[1]._VECTptr)[1].print(nullptr);
+                if ((*hv[1]._VECTptr)[0].type==giac::_IDNT) v1=(*hv[1]._VECTptr)[0].print(contextptr);
+                if ((*hv[1]._VECTptr)[1].type==giac::_IDNT) v2=(*hv[1]._VECTptr)[1].print(contextptr);
             }
             if (hv[2].type==giac::_VECT && hv[2]._VECTptr->size()>=2) {
-                xmin=giac::evalf_double((*hv[2]._VECTptr)[0],1,nullptr)._DOUBLE_val;
-                ymin=giac::evalf_double((*hv[2]._VECTptr)[1],1,nullptr)._DOUBLE_val;
+                giac::gen xmin_gen=giac::evalf_double((*hv[2]._VECTptr)[0],1,contextptr);
+                giac::gen ymin_gen=giac::evalf_double((*hv[2]._VECTptr)[1],1,contextptr);
+                if (xmin_gen.type==giac::_DOUBLE_) xmin=xmin_gen._DOUBLE_val;
+                if (ymin_gen.type==giac::_DOUBLE_) ymin=ymin_gen._DOUBLE_val;
             }
             if (hv[3].type==giac::_VECT && hv[3]._VECTptr->size()>=2) {
-                xmax=giac::evalf_double((*hv[3]._VECTptr)[0],1,nullptr)._DOUBLE_val;
-                ymax=giac::evalf_double((*hv[3]._VECTptr)[1],1,nullptr)._DOUBLE_val;
+                giac::gen xmax_gen=giac::evalf_double((*hv[3]._VECTptr)[0],1,contextptr);
+                giac::gen ymax_gen=giac::evalf_double((*hv[3]._VECTptr)[1],1,contextptr);
+                if (xmax_gen.type==giac::_DOUBLE_) xmax=xmax_gen._DOUBLE_val;
+                if (ymax_gen.type==giac::_DOUBLE_) ymax=ymax_gen._DOUBLE_val;
             }
             int nrows = grid._VECTptr->size();
             if (nrows < 2) continue;
@@ -226,12 +236,12 @@ static std::string extract_giac_plot_data(const giac::gen &result) {
                         double z = 0; bool haveZ = false;
                         // Cell is a _POINT__VECT [x, y, z] or a raw double
                         if (cell.type == giac::_VECT && cell._VECTptr->size() >= 3) {
-                            giac::gen zv = giac::evalf_double((*cell._VECTptr)[2], 1, nullptr);
+                            giac::gen zv = giac::evalf_double((*cell._VECTptr)[2], 1, contextptr);
                             if (zv.type == giac::_DOUBLE_ && std::isfinite(zv._DOUBLE_val)) {
                                 z = zv._DOUBLE_val; haveZ = true;
                             }
                         } else {
-                            giac::gen zv = giac::evalf_double(cell, 1, nullptr);
+                            giac::gen zv = giac::evalf_double(cell, 1, contextptr);
                             if (zv.type == giac::_DOUBLE_ && std::isfinite(zv._DOUBLE_val)) {
                                 z = zv._DOUBLE_val; haveZ = true;
                             }
@@ -257,21 +267,35 @@ static std::string extract_giac_plot_data(const giac::gen &result) {
                     if (!first_item) out << ",";
                     out << "{\"type\":\"scatter\",\"pts\":[";
                     bool first_pt = true;
-                    for (const auto &pt : *seg._VECTptr) { plot_write_pt(out, pt, first_pt); }
+                    for (const auto &pt : *seg._VECTptr) { plot_write_pt(out, pt, first_pt, contextptr); }
                     out << "]}"; first_item = false;
                 }
             } else {
                 if (!first_item) out << ",";
                 out << "{\"type\":\"scatter\",\"pts\":[";
                 bool first_pt = true;
-                int scatter_idx = 0;
-                for (const auto &pt : *inner._VECTptr) { plot_write_pt(out, pt, first_pt, scatter_idx++); }
+                for (const auto &pt : *inner._VECTptr) { plot_write_pt(out, pt, first_pt, contextptr); }
                 out << "]}"; first_item = false;
             }
         }
     }
     out << "]";
     return out.str();
+}
+
+static bool contains_giac_graphic(const giac::gen &value) {
+    if (value.is_symb_of_sommet(giac::at_pnt) ||
+        value.is_symb_of_sommet(giac::at_curve) ||
+        value.is_symb_of_sommet(giac::at_hypersurface) ||
+        value.is_symb_of_sommet(giac::at_hyperplan)) {
+        return true;
+    }
+    if (value.type == giac::_VECT) {
+        for (const auto &item : *value._VECTptr) {
+            if (contains_giac_graphic(item)) return true;
+        }
+    }
+    return false;
 }
 
 
@@ -311,20 +335,31 @@ std::string evaluate_with_giac(const std::string &expr, const std::string &mode)
         ensure_giac();
         giac::gen parsed(expr, giac_context);
         giac::gen evaluated = giac::protecteval(parsed, giac::DEFAULT_EVAL_LEVEL, giac_context);
-        if (mode == "Approx") {
+        // A plot is already sampled by Giac. Applying evalf to the complete
+        // graphic value walks its metadata as if it were an algebraic result.
+        if (mode == "Approx" && !contains_giac_graphic(evaluated)) {
             evaluated = giac::evalf(evaluated, 1, giac_context);
         }
-        std::string plotData = extract_giac_plot_data(evaluated);
-        bool isGraphic = !plotData.empty() && plotData != "[]";
-        std::string symbolic = evaluated.print(giac_context);
-        std::string latex = giac::gen2tex(evaluated, giac_context);
+        std::string plotData = extract_giac_plot_data(evaluated, giac_context);
+        bool isGraphic = contains_giac_graphic(evaluated) || plotData != "[]";
+        // The printed graphic contains every sampled point and can be hundreds
+        // of thousands of characters wide when typeset. plotData is the only
+        // representation the UI needs for graphic results.
+        std::string symbolic = isGraphic ? "" : evaluated.print(giac_context);
 
         std::string numeric;
-        giac::gen approx = giac::evalf(evaluated, 1, giac_context);
-        std::string approxText = approx.print(giac_context);
-        if (approxText != symbolic) numeric = approxText;
+        std::string latex;
         std::string numericLatex;
-        if (!numeric.empty()) numericLatex = giac::gen2tex(approx, giac_context);
+        // Giac's TeX and whole-result evalf paths are not safe for graphic
+        // objects. They recursively walk plot metadata as algebraic values and
+        // may abort in native code instead of throwing a C++ exception.
+        if (!isGraphic) {
+            latex = giac::gen2tex(evaluated, giac_context);
+            giac::gen approx = giac::evalf(evaluated, 1, giac_context);
+            std::string approxText = approx.print(giac_context);
+            if (approxText != symbolic) numeric = approxText;
+            if (!numeric.empty()) numericLatex = giac::gen2tex(approx, giac_context);
+        }
         std::ostringstream plotJson;
         plotJson << "{\"symbolic\":\"" << json_escape(symbolic)
                  << "\",\"numeric\":\"" << json_escape(numeric)
