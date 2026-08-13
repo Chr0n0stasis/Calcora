@@ -1,8 +1,9 @@
+#ifdef __ANDROID__
 #include <jni.h>
 #include <android/log.h>
+#endif
 
 #if CALCULATORPLUS_WITH_GIAC
-#include "giac/config.h"
 #include "giac/gen.h"
 #include "giac/prog.h"
 #include "giac/usual.h"
@@ -26,6 +27,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#include "calcora_engine.h"
 
 namespace {
 
@@ -630,95 +633,17 @@ std::string evaluate(const std::string &expr, const std::string &mode) {
 #endif
 }
 
-std::string jstring_to_string(JNIEnv *env, jstring value) {
-    if (!value) return "";
-    const char *chars = env->GetStringUTFChars(value, nullptr);
-    if (!chars) return "";
-    std::string result(chars);
-    env->ReleaseStringUTFChars(value, chars);
-    return result;
-}
-
-jstring string_to_jstring(JNIEnv *env, const std::string &value) {
-    return env->NewStringUTF(value.c_str());
-}
-
-}
-
-
-extern "C" JNIEXPORT void JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeSetLanguage(
-    JNIEnv *, jobject, jint code) {
-    std::lock_guard<std::mutex> lock(engine_mutex);
+std::string plot_sample(const std::string &expr_str, std::string var_str,
+                        double xmin, double xmax, int samples) {
 #if CALCULATORPLUS_WITH_GIAC
-    ensure_giac();
-    if (code > 0) {
-        giac::language(code, giac_context);
-    }
-#endif
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeInit(JNIEnv *, jobject) {
-    std::lock_guard<std::mutex> lock(engine_mutex);
-#if CALCULATORPLUS_WITH_GIAC
-    ensure_giac();
-    // Default to English on init
-    giac::language(2, giac_context);
-#endif
-    variables.try_emplace("pi", M_PI);
-    variables.try_emplace("e", M_E);
-    interrupted.store(false);
-}
-
-extern "C" JNIEXPORT jstring JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeEvaluate(JNIEnv *env, jobject, jstring expr, jstring mode) {
-    std::lock_guard<std::mutex> lock(engine_mutex);
-    return string_to_jstring(env, evaluate(jstring_to_string(env, expr), jstring_to_string(env, mode)));
-}
-
-extern "C" JNIEXPORT jstring JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeEvaluateRawXcas(JNIEnv *env, jobject, jstring expr) {
-    std::lock_guard<std::mutex> lock(engine_mutex);
-    return string_to_jstring(env, evaluate(jstring_to_string(env, expr), "RawXcas"));
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeReset(JNIEnv *, jobject) {
-    std::lock_guard<std::mutex> lock(engine_mutex);
-#if CALCULATORPLUS_WITH_GIAC
-    delete giac_context;
-    giac_context = new giac::context();
-#endif
-    variables.clear();
-    functions.clear();
-    variables["pi"] = M_PI;
-    variables["e"] = M_E;
-    interrupted.store(false);
-}
-
-extern "C" JNIEXPORT void JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeInterrupt(JNIEnv *, jobject) {
-    interrupted.store(true);
-}
-
-extern "C" JNIEXPORT jstring JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativePlotSample(
-    JNIEnv *env, jobject, jstring expr, jstring varName, jdouble xmin, jdouble xmax, jint samples) {
-#if CALCULATORPLUS_WITH_GIAC
-    std::lock_guard<std::mutex> lock(engine_mutex);
     try {
         ensure_giac();
-        std::string expr_str = jstring_to_string(env, expr);
-        std::string var_str = jstring_to_string(env, varName);
         if (var_str.empty()) var_str = "x";
 
         giac::gen parsed(expr_str, giac_context);
         giac::gen simplified = giac::protecteval(parsed, giac::DEFAULT_EVAL_LEVEL, giac_context);
-
         giac::identificateur var_id(var_str.c_str());
-        int n = samples;
-        if (n < 2) n = 300;
+        int n = samples < 2 ? 300 : samples;
         double step = (xmax - xmin) / (n - 1);
 
         std::ostringstream out;
@@ -726,11 +651,11 @@ Java_dev_libchara_calcora_engine_GiacEngine_nativePlotSample(
         bool first = true;
         for (int i = 0; i < n; i++) {
             double x = xmin + i * step;
-            giac::gen x_val(x);
-            giac::gen substituted = giac::subst(simplified, var_id, x_val, false, giac_context);
+            giac::gen substituted = giac::subst(
+                simplified, var_id, giac::gen(x), false, giac_context);
             giac::gen approx = giac::evalf(substituted, 1, giac_context);
 
-            double y;
+            double y = 0;
             bool valid = false;
             if (approx.type == giac::_DOUBLE_) {
                 y = approx.DOUBLE_val();
@@ -750,61 +675,129 @@ Java_dev_libchara_calcora_engine_GiacEngine_nativePlotSample(
             }
         }
         out << "]";
-        return string_to_jstring(env, out.str());
+        return out.str();
     } catch (...) {
-        return string_to_jstring(env, "[]");
+        return "[]";
     }
 #else
-    return string_to_jstring(env, "[]");
+    (void) expr_str; (void) var_str; (void) xmin; (void) xmax; (void) samples;
+    return "[]";
 #endif
 }
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeHelp(
-    JNIEnv *env, jobject, jstring command) {
+std::string engine_help(const std::string &command) {
 #if CALCULATORPLUS_WITH_GIAC
-    std::lock_guard<std::mutex> lock(engine_mutex);
     try {
         ensure_giac();
-        std::string cmd = jstring_to_string(env, command);
-        std::string expr = "help(\"" + cmd + "\")";
+        std::string expr = "help(\"" + command + "\")";
         giac::gen parsed(expr, giac_context);
         giac::gen result = giac::protecteval(parsed, giac::DEFAULT_EVAL_LEVEL, giac_context);
         std::string text;
         if (result.type == giac::_STRNG && result._STRNGptr) {
             text = *result._STRNGptr;
-    
         } else {
             text = result.print(giac_context);
             if (text.size() >= 2 && text.front() == '"' && text.back() == '"')
                 text = text.substr(1, text.size() - 2);
         }
-        if (text.find("No help available") == 0 || text.empty())
-            return string_to_jstring(env, "");
-        return string_to_jstring(env, text);
+        return text.find("No help available") == 0 ? "" : text;
     } catch (...) {
-        return string_to_jstring(env, "");
+        return "";
     }
 #else
-    return string_to_jstring(env, "");
+    (void) command;
+    return "";
 #endif
 }
-extern "C" JNIEXPORT void JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeSetHelpDir(
-    JNIEnv *env, jobject, jstring path) {
-#if CALCULATORPLUS_WITH_GIAC
+
+thread_local std::string c_api_result;
+
+const char *keep_c_api_result(std::string value) {
+    c_api_result = std::move(value);
+    return c_api_result.c_str();
+}
+
+#ifdef __ANDROID__
+std::string jstring_to_string(JNIEnv *env, jstring value) {
+    if (!value) return "";
+    const char *chars = env->GetStringUTFChars(value, nullptr);
+    if (!chars) return "";
+    std::string result(chars);
+    env->ReleaseStringUTFChars(value, chars);
+    return result;
+}
+
+jstring string_to_jstring(JNIEnv *env, const std::string &value) {
+    return env->NewStringUTF(value.c_str());
+}
+#endif
+
+}
+
+extern "C" void calcora_engine_init(void) {
     std::lock_guard<std::mutex> lock(engine_mutex);
-    const char *p = env->GetStringUTFChars(path, nullptr);
-    if (!p) return;
-    setenv("XCAS_ROOT", p, 1);
-    env->ReleaseStringUTFChars(path, p);
+#if CALCULATORPLUS_WITH_GIAC
+    ensure_giac();
+    giac::language(2, giac_context);
+#endif
+    variables.try_emplace("pi", M_PI);
+    variables.try_emplace("e", M_E);
+    interrupted.store(false);
+}
+
+extern "C" const char *calcora_engine_evaluate(const char *expr, const char *mode) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    return keep_c_api_result(evaluate(expr ? expr : "", mode ? mode : "Auto"));
+}
+
+extern "C" const char *calcora_engine_plot_sample(
+    const char *expr, const char *variable, double xmin, double xmax, int samples) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    return keep_c_api_result(plot_sample(expr ? expr : "", variable ? variable : "x", xmin, xmax, samples));
+}
+
+extern "C" const char *calcora_engine_help(const char *command) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    return keep_c_api_result(engine_help(command ? command : ""));
+}
+
+extern "C" void calcora_engine_reset(void) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+#if CALCULATORPLUS_WITH_GIAC
+    delete giac_context;
+    giac_context = new giac::context();
+#endif
+    variables.clear();
+    functions.clear();
+    variables["pi"] = M_PI;
+    variables["e"] = M_E;
+    interrupted.store(false);
+}
+
+extern "C" void calcora_engine_interrupt(void) {
+    interrupted.store(true);
+}
+
+extern "C" void calcora_engine_set_language(int code) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+#if CALCULATORPLUS_WITH_GIAC
+    ensure_giac();
+    if (code > 0) giac::language(code, giac_context);
+#else
+    (void) code;
 #endif
 }
 
+extern "C" void calcora_engine_set_help_dir(const char *path) {
+#if CALCULATORPLUS_WITH_GIAC
+    if (path) setenv("XCAS_ROOT", path, 1);
+#else
+    (void) path;
+#endif
+}
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_dev_libchara_calcora_engine_GiacEngine_nativeVersion(JNIEnv *env, jobject) {
-    return string_to_jstring(env,
+extern "C" const char *calcora_engine_version(void) {
+    return keep_c_api_result(
 #if CALCULATORPLUS_WITH_GIAC
         std::string("Giac 2.0.0 native core integrated from ") + CALCULATORPLUS_GIAC_SOURCE
 #else
@@ -812,3 +805,65 @@ Java_dev_libchara_calcora_engine_GiacEngine_nativeVersion(JNIEnv *env, jobject) 
 #endif
     );
 }
+
+#ifdef __ANDROID__
+extern "C" JNIEXPORT void JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeSetLanguage(
+    JNIEnv *, jobject, jint code) {
+    calcora_engine_set_language(code);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeInit(JNIEnv *, jobject) {
+    calcora_engine_init();
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeEvaluate(JNIEnv *env, jobject, jstring expr, jstring mode) {
+    return string_to_jstring(env, calcora_engine_evaluate(
+        jstring_to_string(env, expr).c_str(), jstring_to_string(env, mode).c_str()));
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeEvaluateRawXcas(JNIEnv *env, jobject, jstring expr) {
+    return string_to_jstring(env, calcora_engine_evaluate(jstring_to_string(env, expr).c_str(), "RawXcas"));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeReset(JNIEnv *, jobject) {
+    calcora_engine_reset();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeInterrupt(JNIEnv *, jobject) {
+    calcora_engine_interrupt();
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativePlotSample(
+    JNIEnv *env, jobject, jstring expr, jstring varName, jdouble xmin, jdouble xmax, jint samples) {
+    return string_to_jstring(env, calcora_engine_plot_sample(
+        jstring_to_string(env, expr).c_str(), jstring_to_string(env, varName).c_str(),
+        xmin, xmax, samples));
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeHelp(
+    JNIEnv *env, jobject, jstring command) {
+    return string_to_jstring(env, calcora_engine_help(jstring_to_string(env, command).c_str()));
+}
+extern "C" JNIEXPORT void JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeSetHelpDir(
+    JNIEnv *env, jobject, jstring path) {
+    const char *p = env->GetStringUTFChars(path, nullptr);
+    if (!p) return;
+    calcora_engine_set_help_dir(p);
+    env->ReleaseStringUTFChars(path, p);
+}
+
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_dev_libchara_calcora_engine_GiacEngine_nativeVersion(JNIEnv *env, jobject) {
+    return string_to_jstring(env, calcora_engine_version());
+}
+#endif
