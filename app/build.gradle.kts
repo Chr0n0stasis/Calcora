@@ -16,8 +16,8 @@ android {
         applicationId = "dev.libchara.calcora"
         minSdk = 29
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.3.1"
+        versionCode = 9
+        versionName = "0.3.2"
         buildConfigField("String", "GITHUB_REPO", "\"jsjsjsjsjsjsjson/Calcora\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
