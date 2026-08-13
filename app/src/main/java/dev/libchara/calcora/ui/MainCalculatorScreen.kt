@@ -21,6 +21,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -259,14 +261,9 @@ LaunchedEffect(restoreExpression) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colors.background)
-        ) {
+    val actionBar: @Composable (Modifier) -> Unit = { modifier ->
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 0.dp),
+            modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -293,11 +290,11 @@ LaunchedEffect(restoreExpression) {
                 Text(">_", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = colors.primary)
             }
         }
+    }
 
+    val displayArea: @Composable (Modifier, androidx.compose.ui.unit.Dp) -> Unit = { modifier, horizontalPadding ->
         Column(
-            modifier = Modifier
-                .weight(0.42f)
-                .fillMaxWidth()
+            modifier = modifier.fillMaxWidth()
         ) {
             // Scrollable history
             if (calcHistory.isNotEmpty()) {
@@ -343,7 +340,7 @@ LaunchedEffect(restoreExpression) {
             }
 
             // Current input + result (pinned below history), autocomplete overlay
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = horizontalPadding)) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.End
@@ -477,9 +474,11 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                 }
             } // end Box overlay
         }
+    }
 
+    val modeSelector: @Composable (Modifier) -> Unit = { modifier ->
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+            modifier = modifier.fillMaxWidth().padding(horizontal = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             EvalMode.entries.forEach { item ->
@@ -487,11 +486,16 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                             Text(label, fontSize = 11.sp, maxLines = 1) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp), colors = FilterChipDefaults.filterChipColors(selectedContainerColor = colors.primary, selectedLabelColor = colors.onPrimary))
             }
         }
+    }
 
+    val editingToolbar: @Composable (Modifier, Boolean) -> Unit = { modifier, compact ->
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 1.dp),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 1.dp)
+                .then(if (compact) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = if (compact) Arrangement.spacedBy(8.dp) else Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AssistChip(onClick = { insert("help(□)") }, label = { Text("?", fontSize = 13.sp, fontWeight = FontWeight.Bold) }, shape = RoundedCornerShape(14.dp))
@@ -521,36 +525,39 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                 AssistChip(onClick = { functionsExpanded = !functionsExpanded; varsExpanded = false; fxExpanded = false }, label = { Text(stringResource(R.string.panel_funcs), fontSize = 11.sp) }, shape = RoundedCornerShape(14.dp))
             }
         }
+    }
 
+    val expandedInputPanel: @Composable (androidx.compose.ui.unit.Dp) -> Unit = { maxHeight ->
         AnimatedVisibility(visible = varsExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 110.dp).padding(horizontal = 10.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().heightIn(max = maxHeight).padding(horizontal = 10.dp)) {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     VarPanel(onInsert = ::insert)
                 }
             }
         }
         AnimatedVisibility(visible = fxExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 110.dp).padding(horizontal = 10.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().heightIn(max = maxHeight).padding(horizontal = 10.dp)) {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     FxPanel(onInsert = ::insert)
                 }
             }
         }
         AnimatedVisibility(visible = functionsExpanded, enter = expandVertically(), exit = shrinkVertically()) {
-            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 110.dp).padding(horizontal = 10.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().heightIn(max = maxHeight).padding(horizontal = 10.dp)) {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     FunctionsPanel(onInsert = ::insert)
                 }
             }
         }
+    }
 
+    val keypad: @Composable (Modifier, Boolean) -> Unit = { modifier, compact ->
         Column(
-            modifier = Modifier
-                .weight(0.58f)
+            modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 10.dp)
-                .padding(bottom = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+                .padding(bottom = if (compact) 2.dp else 6.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 5.dp)
         ) {
             CALCULATOR_KEY_ROWS.forEach { row ->
                 Row(
@@ -577,6 +584,7 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                                 }
                             },
                             modifier = Modifier.weight(if (isWide) 2.1f else 1f),
+                            compact = compact,
                             onLongClick = if (key.label == "⌫") {
                                 {
                                     updateInput(TextFieldValue(""))
@@ -585,6 +593,41 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                         )
                     }
                 }
+            }
+        }
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
+        val landscape = maxWidth > maxHeight
+
+        if (landscape) {
+            Row(modifier = Modifier.fillMaxSize().background(colors.background)) {
+                Column(modifier = Modifier.weight(1.08f).fillMaxHeight()) {
+                    actionBar(Modifier)
+                    displayArea(Modifier.weight(1f), 16.dp)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(vertical = 8.dp)
+                        .width(1.dp)
+                        .background(colors.outlineVariant.copy(alpha = 0.55f))
+                )
+                Column(modifier = Modifier.weight(0.92f).fillMaxHeight().padding(top = 2.dp)) {
+                    modeSelector(Modifier)
+                    editingToolbar(Modifier, true)
+                    expandedInputPanel(72.dp)
+                    keypad(Modifier.weight(1f), true)
+                }
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxSize().background(colors.background)) {
+                actionBar(Modifier)
+                displayArea(Modifier.weight(0.42f), 20.dp)
+                modeSelector(Modifier)
+                editingToolbar(Modifier, false)
+                expandedInputPanel(110.dp)
+                keypad(Modifier.weight(0.58f), false)
             }
         }
 
@@ -596,7 +639,6 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                 onDismiss = { resultDialog = false }
             )
         }
-        } // end outer Column
 
         // Loading spinner overlay on top of everything
         AnimatedVisibility(
@@ -611,7 +653,7 @@ Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxW
                 CircularProgressIndicator(color = colors.primary, strokeWidth = 3.dp)
             }
         }
-    } // end Box
+    } // end BoxWithConstraints
 }
 
 @Composable
@@ -704,6 +746,7 @@ private fun CalculatorKey(
     role: KeyRole,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
     onLongClick: (() -> Unit)? = null
 ) {
     val colors = MaterialTheme.colorScheme
@@ -722,7 +765,9 @@ private fun CalculatorKey(
         else -> colors.onSurface
     }
     Surface(
-        modifier = modifier.height(78.dp).combinedClickable(
+        modifier = modifier
+            .then(if (compact) Modifier.fillMaxSize() else Modifier.height(78.dp))
+            .combinedClickable(
             onClick = {
                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                 onClick()
@@ -734,7 +779,7 @@ private fun CalculatorKey(
                 }
             }
         ),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(if (compact) 10.dp else 12.dp),
         color = bg,
         contentColor = fg
     ) {
@@ -743,7 +788,14 @@ private fun CalculatorKey(
                 text = label,
                 style = TextStyle(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = when { label.length > 2 -> 16.sp; role == KeyRole.Number || label == "," -> 24.sp; else -> 21.sp },
+                    fontSize = when {
+                        compact && label.length > 2 -> 13.sp
+                        compact && (role == KeyRole.Number || label == ",") -> 20.sp
+                        compact -> 17.sp
+                        label.length > 2 -> 16.sp
+                        role == KeyRole.Number || label == "," -> 24.sp
+                        else -> 21.sp
+                    },
                     fontWeight = if (role == KeyRole.Equals || role == KeyRole.Number || label == ",") FontWeight.Medium else FontWeight.Normal,
                     letterSpacing = 0.sp, textAlign = TextAlign.Center
                 )

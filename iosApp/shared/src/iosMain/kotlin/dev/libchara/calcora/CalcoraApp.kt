@@ -11,12 +11,19 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,14 +33,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.ComposeUIViewController
 import dev.libchara.calcora.data.AppLanguage
@@ -127,18 +137,13 @@ fun CalcoraApp() {
     CalcoraTheme(darkTheme = darkTheme) {
         key(localeKey) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                Scaffold(bottomBar = {
-                    NavigationBar(Modifier.fillMaxWidth()) {
-                        Destination.entries.forEach { item ->
-                            NavigationBarItem(
-                                selected = destination == item,
-                                onClick = { destination = item; if (item == Destination.Help) helpFunction = null },
-                                icon = { Text(item.symbol, fontSize = 18.sp, fontWeight = FontWeight.Bold) },
-                                label = { Text(stringResource(item.label), fontSize = 11.sp) }
-                            )
-                        }
+                AdaptiveNavigationScaffold(
+                    destination = destination,
+                    onDestinationChange = {
+                        destination = it
+                        if (it == Destination.Help) helpFunction = null
                     }
-                }) { padding ->
+                ) { padding ->
                     AnimatedContent(
                         targetState = destination,
                         transitionSpec = {
@@ -228,6 +233,59 @@ fun CalcoraApp() {
                         }
                     }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdaptiveNavigationScaffold(
+    destination: Destination,
+    onDestinationChange: (Destination) -> Unit,
+    content: @Composable (PaddingValues) -> Unit
+) {
+    val currentContent by rememberUpdatedState(content)
+    val movableContent = remember {
+        movableContentOf { currentContent(PaddingValues(0.dp)) }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val landscape = maxWidth > maxHeight
+        if (landscape) {
+            Scaffold { safeAreaPadding ->
+                Row(Modifier.fillMaxSize().padding(safeAreaPadding)) {
+                    NavigationRail(Modifier.fillMaxHeight()) {
+                        Destination.entries.forEach { item ->
+                            NavigationRailItem(
+                                selected = destination == item,
+                                onClick = { onDestinationChange(item) },
+                                icon = { Text(item.symbol, fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+                                label = { Text(stringResource(item.label), fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                        movableContent()
+                    }
+                }
+            }
+        } else {
+            Scaffold(
+                bottomBar = {
+                    NavigationBar(Modifier.fillMaxWidth()) {
+                        Destination.entries.forEach { item ->
+                            NavigationBarItem(
+                                selected = destination == item,
+                                onClick = { onDestinationChange(item) },
+                                icon = { Text(item.symbol, fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+                                label = { Text(stringResource(item.label), fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+            ) { safeAreaPadding ->
+                Box(Modifier.fillMaxSize().padding(safeAreaPadding)) {
+                    movableContent()
+                }
             }
         }
     }
