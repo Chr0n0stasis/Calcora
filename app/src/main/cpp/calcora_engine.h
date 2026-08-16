@@ -25,6 +25,8 @@ void calcora_engine_reset(void);
 void calcora_engine_interrupt(void);
 void calcora_engine_set_language(int code);
 void calcora_engine_set_help_dir(const char *path);
+void calcora_engine_set_precision(int digits);
+void calcora_engine_set_angle_unit(int degrees);
 const char *calcora_engine_version(void);
 
 #ifdef __cplusplus

@@ -35,6 +35,8 @@ namespace {
 std::map<std::string, double> variables;
 std::map<std::string, std::string> functions;
 std::atomic_bool interrupted{false};
+std::atomic_int precision_digits{12};
+std::atomic_bool angle_degrees{false};
 std::mutex engine_mutex;
 
 #if CALCULATORPLUS_WITH_GIAC
@@ -73,13 +75,43 @@ std::string json_escape(const std::string &value) {
 std::string format_double(double value) {
     if (std::fabs(value) < 1e-12) value = 0.0;
     std::ostringstream out;
-    out << std::setprecision(12) << value;
+    out << std::setprecision(precision_digits.load()) << value;
     std::string text = out.str();
     if (text.find('.') != std::string::npos) {
         while (!text.empty() && text.back() == '0') text.pop_back();
         if (!text.empty() && text.back() == '.') text.pop_back();
     }
     return text.empty() ? "0" : text;
+}
+
+std::string apply_angle_unit(std::string expression) {
+    if (!angle_degrees.load()) return expression;
+    const char *names[] = {"sin", "cos", "tan"};
+    for (const char *name : names) {
+        const std::string prefix = std::string(name) + "(";
+        size_t search = 0;
+        while ((search = expression.find(prefix, search)) != std::string::npos) {
+            const size_t arg_start = search + prefix.size();
+            size_t end = arg_start;
+            int depth = 1;
+            for (; end < expression.size() && depth > 0; ++end) {
+                if (expression[end] == '(') ++depth;
+                else if (expression[end] == ')') --depth;
+            }
+            if (depth != 0) break;
+            const size_t arg_end = end - 1;
+            const std::string argument = expression.substr(arg_start, arg_end - arg_start);
+            const bool numeric_only = !argument.empty() && argument.find_first_not_of("0123456789.+-*/^() \t") == std::string::npos;
+            if (numeric_only) {
+                const std::string converted = "(" + argument + ")*pi/180";
+                expression.replace(arg_start, argument.size(), converted);
+                search = arg_start + converted.size() + 1;
+            } else {
+                search = end;
+            }
+        }
+    }
+    return expression;
 }
 
 #if CALCULATORPLUS_WITH_GIAC
@@ -614,14 +646,15 @@ std::string evaluate_statement(const std::string &statement, std::string &numeri
 }
 
 std::string evaluate(const std::string &expr, const std::string &mode) {
+    const std::string normalized_expr = apply_angle_unit(expr);
 #if CALCULATORPLUS_WITH_GIAC
-    return evaluate_with_giac(expr, mode);
+    return evaluate_with_giac(normalized_expr, mode);
 #else
     try {
         if (interrupted.load()) return make_result("", "", "Evaluation interrupted");
         std::string symbolic;
         std::string numeric;
-        for (const auto &statement: split_statements(expr)) {
+        for (const auto &statement: split_statements(normalized_expr)) {
             symbolic = evaluate_statement(statement, numeric);
         }
         if (mode == "Approx" && !numeric.empty()) symbolic = numeric;
@@ -640,7 +673,7 @@ std::string plot_sample(const std::string &expr_str, std::string var_str,
         ensure_giac();
         if (var_str.empty()) var_str = "x";
 
-        giac::gen parsed(expr_str, giac_context);
+        giac::gen parsed(apply_angle_unit(expr_str), giac_context);
         giac::gen simplified = giac::protecteval(parsed, giac::DEFAULT_EVAL_LEVEL, giac_context);
         giac::identificateur var_id(var_str.c_str());
         int n = samples < 2 ? 300 : samples;
@@ -689,7 +722,12 @@ std::string engine_help(const std::string &command) {
 #if CALCULATORPLUS_WITH_GIAC
     try {
         ensure_giac();
-        std::string expr = "help(\"" + command + "\")";
+        std::string escaped = command;
+        size_t slash = 0;
+        while ((slash = escaped.find('\\', slash)) != std::string::npos) { escaped.insert(slash, "\\"); slash += 2; }
+        size_t quote = 0;
+        while ((quote = escaped.find('"', quote)) != std::string::npos) { escaped.insert(quote, "\\"); quote += 2; }
+        std::string expr = "help(\"" + escaped + "\")";
         giac::gen parsed(expr, giac_context);
         giac::gen result = giac::protecteval(parsed, giac::DEFAULT_EVAL_LEVEL, giac_context);
         std::string text;
@@ -747,6 +785,8 @@ extern "C" void calcora_engine_init(void) {
 
 extern "C" const char *calcora_engine_evaluate(const char *expr, const char *mode) {
     std::lock_guard<std::mutex> lock(engine_mutex);
+    // An interrupt is one-shot. Do not poison every subsequent evaluation.
+    interrupted.store(false);
     return keep_c_api_result(evaluate(expr ? expr : "", mode ? mode : "Auto"));
 }
 
@@ -794,6 +834,14 @@ extern "C" void calcora_engine_set_help_dir(const char *path) {
 #else
     (void) path;
 #endif
+}
+
+extern "C" void calcora_engine_set_precision(int digits) {
+    precision_digits.store(std::max(4, std::min(32, digits)));
+}
+
+extern "C" void calcora_engine_set_angle_unit(int degrees) {
+    angle_degrees.store(degrees != 0);
 }
 
 extern "C" const char *calcora_engine_version(void) {

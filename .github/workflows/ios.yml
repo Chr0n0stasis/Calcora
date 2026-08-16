@@ -1,6 +1,8 @@
-name: Build iOS
+name: Build iOS / iPadOS
 
-on:
+'on':
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -8,69 +10,184 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios-${{ github.ref }}
+  group: ios-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+  IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+  IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+  IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+  IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+  IOS_BUNDLE_IDENTIFIER: ${{ secrets.IOS_BUNDLE_IDENTIFIER }}
+  IOS_CODE_SIGN_IDENTITY: ${{ secrets.IOS_CODE_SIGN_IDENTITY }}
+  IOS_EXPORT_METHOD: ${{ secrets.IOS_EXPORT_METHOD }}
 
 jobs:
   build-ios:
-    name: Unsigned iOS IPA
+    name: Build iOS / iPadOS IPA
     runs-on: macos-15
-    timeout-minutes: 120
-
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: "17"
+          fetch-depth: 1
 
-      - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Prepare build tools
+      - name: Prepare Apple build tools
+        shell: bash
         run: |
-          chmod +x gradlew iosApp/native/build-native.sh
+          set -euo pipefail
+          chmod +x iosApp/native/build-native.sh
+          test -f app/src/main/cpp/calcora_engine.h
+          test -f giac-2.0.0/src/giac/gen.h
+          test -f iosApp/CalcoraIOS/Resources/aide_cas
+          test -f iosApp/CalcoraIOS/Resources/zh/aide_cas
           xcodebuild -version
+          xcodebuild -showsdks
+          xcodebuild -list -project iosApp/CalcoraIOS.xcodeproj
           cmake --version
-          java -version
 
-      - name: Build unsigned iOS device app
+      - name: Create temporary signing keychain
+        if: ${{ env.IOS_CERTIFICATE_BASE64 != '' && env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        shell: bash
         run: |
-          set -o pipefail
-          xcodebuild \
-            -project iosApp/CalcoraIOS.xcodeproj \
-            -target CalcoraIOS \
-            -configuration Release \
-            -sdk iphoneos \
-            -arch arm64 \
-            ONLY_ACTIVE_ARCH=YES \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            SYMROOT="$RUNNER_TEMP/ios-build" \
-            OBJROOT="$RUNNER_TEMP/ios-obj" \
-            clean build
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/calcora-signing.keychain-db"
+          KEYCHAIN_PASSWORD="${IOS_KEYCHAIN_PASSWORD:-$(uuidgen)}"
+          CERT_PATH="$RUNNER_TEMP/calcora-signing.p12"
+          PROFILE_PATH="$RUNNER_TEMP/calcora.mobileprovision"
+          echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          PROFILE_PLIST="$RUNNER_TEMP/calcora-profile.plist"
+          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$PROFILE_PLIST")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$PROFILE_PLIST")
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          {
+            echo "IOS_KEYCHAIN_PATH=$KEYCHAIN_PATH"
+            echo "IOS_PROFILE_UUID=$PROFILE_UUID"
+            echo "IOS_PROFILE_NAME=$PROFILE_NAME"
+            echo "IOS_EXPORT_METHOD=${IOS_EXPORT_METHOD:-ad-hoc}"
+            echo "IOS_CODE_SIGN_IDENTITY=${IOS_CODE_SIGN_IDENTITY:-Apple Distribution}"
+          } >> "$GITHUB_ENV"
 
-      - name: Package unsigned IPA
+      - name: Build unsigned device app (fallback)
+        if: ${{ env.IOS_CERTIFICATE_BASE64 == '' || env.IOS_PROVISIONING_PROFILE_BASE64 == '' }}
+        shell: bash
         run: |
-          APP_PATH="$(find "$RUNNER_TEMP/ios-build" -path "*/Release-iphoneos/CalcoraIOS.app" -type d -print -quit)"
+          set -euo pipefail
+          xcodebuild -project iosApp/CalcoraIOS.xcodeproj -target CalcoraIOS -configuration Release -sdk iphoneos -arch arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO SYMROOT="$RUNNER_TEMP/ios-build" OBJROOT="$RUNNER_TEMP/ios-obj" clean build
+          APP_PATH="$(find "$RUNNER_TEMP/ios-build" -path '*/Release-iphoneos/CalcoraIOS.app' -type d -print -quit)"
           test -n "$APP_PATH"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CADisableMinimumFrameDurationOnPhone' "$APP_PATH/Info.plist")" = "true"
-          test -f "$APP_PATH/Assets.car"
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Archive signed device app
+        if: ${{ env.IOS_CERTIFICATE_BASE64 != '' && env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE_ID="${IOS_BUNDLE_IDENTIFIER:-dev.libchara.calcora}"
+          TEAM_ID="${IOS_TEAM_ID:?IOS_TEAM_ID secret is required for signed builds}"
+          xcodebuild archive \
+            -project iosApp/CalcoraIOS.xcodeproj \
+            -scheme CalcoraIOS \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Calcora.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$IOS_CODE_SIGN_IDENTITY" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROFILE_UUID" \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES
+          APP_PATH="$RUNNER_TEMP/Calcora.xcarchive/Products/Applications/CalcoraIOS.app"
+          test -d "$APP_PATH"
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Export signed IPA
+        if: ${{ env.IOS_CERTIFICATE_BASE64 != '' && env.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE_ID="${IOS_BUNDLE_IDENTIFIER:-dev.libchara.calcora}"
+          TEAM_ID="${IOS_TEAM_ID:?IOS_TEAM_ID secret is required for signed builds}"
+          EXPORT_OPTIONS="$RUNNER_TEMP/ExportOptions.plist"
+          cat > "$EXPORT_OPTIONS" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>${IOS_EXPORT_METHOD:-ad-hoc}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>compileBitcode</key><false/>
+            <key>destination</key><string>export</string>
+            <key>provisioningProfiles</key><dict>
+              <key>$BUNDLE_ID</key><string>$IOS_PROFILE_UUID</string>
+            </dict>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Calcora.xcarchive" -exportPath "$RUNNER_TEMP/export" -exportOptionsPlist "$EXPORT_OPTIONS"
+          IPA_PATH="$RUNNER_TEMP/export/CalcoraIOS.ipa"
+          test -f "$IPA_PATH"
+          unzip -t "$IPA_PATH"
+          unzip -Z1 "$IPA_PATH" | grep -q '^Payload/CalcoraIOS.app/Info.plist$'
+          unzip -Z1 "$IPA_PATH" | grep -q '^Payload/CalcoraIOS.app/aide_cas$'
+          codesign --verify --deep --strict "$APP_PATH"
+          echo "IPA_PATH=$IPA_PATH" >> "$GITHUB_ENV"
+
+      - name: Package unsigned IPA (fallback)
+        if: ${{ env.IOS_CERTIFICATE_BASE64 == '' || env.IOS_PROVISIONING_PROFILE_BASE64 == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
           IPA_ROOT="$RUNNER_TEMP/ipa"
           mkdir -p "$IPA_ROOT/Payload"
           ditto "$APP_PATH" "$IPA_ROOT/Payload/CalcoraIOS.app"
           (cd "$IPA_ROOT" && zip -qry "$RUNNER_TEMP/Calcora-unsigned.ipa" Payload)
           unzip -t "$RUNNER_TEMP/Calcora-unsigned.ipa"
-          unzip -Z1 "$RUNNER_TEMP/Calcora-unsigned.ipa" \
-            | grep -q '^Payload/CalcoraIOS.app/Info.plist$'
+          echo "IPA_PATH=$RUNNER_TEMP/Calcora-unsigned.ipa" >> "$GITHUB_ENV"
+
+      - name: Build simulator validation app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -project iosApp/CalcoraIOS.xcodeproj -scheme CalcoraIOS -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO SYMROOT="$RUNNER_TEMP/sim-build" OBJROOT="$RUNNER_TEMP/sim-obj" build
+          SIM_APP="$(find "$RUNNER_TEMP/sim-build" -path '*/Debug-iphonesimulator/CalcoraIOS.app' -type d -print -quit)"
+          test -n "$SIM_APP"
+          test -f "$SIM_APP/aide_cas"
+          test -f "$SIM_APP/zh/aide_cas"
+          file "$SIM_APP/CalcoraIOS"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Calcora-unsigned-IPA
-          path: ${{ runner.temp }}/Calcora-unsigned.ipa
+          name: Calcora-${{ (env.IOS_CERTIFICATE_BASE64 != '' && env.IOS_PROVISIONING_PROFILE_BASE64 != '') && 'signed' || 'unsigned' }}-IPA-${{ github.sha }}
+          path: ${{ env.IPA_PATH }}
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload archive/app diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: Calcora-iOS-diagnostics-${{ github.sha }}
+          path: |
+            ${{ env.APP_PATH }}
+            ${{ runner.temp }}/Calcora.xcarchive
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Clean temporary signing material
+        if: ${{ always() && env.IOS_KEYCHAIN_PATH != '' }}
+        shell: bash
+        run: |
+          security delete-keychain "$IOS_KEYCHAIN_PATH" || true
+          rm -f "$RUNNER_TEMP/calcora-signing.p12" "$RUNNER_TEMP/calcora.mobileprovision"

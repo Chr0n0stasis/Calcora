@@ -9,6 +9,22 @@
 		100000000000000000000001 /* CalcoraIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000011 /* CalcoraIOSApp.swift */; };
 		100000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000012 /* ContentView.swift */; };
 		100000000000000000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000013 /* Assets.xcassets */; };
+		100000000000000000000004 /* CalcoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000014 /* CalcoraEngine.swift */; };
+		100000000000000000000005 /* CalcoraModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000015 /* CalcoraModels.swift */; };
+		100000000000000000000006 /* CalcoraStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000016 /* CalcoraStore.swift */; };
+		100000000000000000000007 /* CalculatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* CalculatorView.swift */; };
+		10000000000000000000000B /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001B /* HelpView.swift */; };
+		10000000000000000000000C /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001C /* HistoryView.swift */; };
+		10000000000000000000000D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001D /* SettingsView.swift */; };
+		10000000000000000000000E /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001E /* TerminalView.swift */; };
+		10000000000000000000000F /* ScriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001F /* ScriptView.swift */; };
+		100000000000000000000024 /* PlotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* PlotView.swift */; };
+		100000000000000000000036 /* ExpressionTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000026 /* ExpressionTextView.swift */; };
+		100000000000000000000037 /* NaturalMathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000027 /* NaturalMathView.swift */; };
+		100000000000000000000038 /* ResultDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000028 /* ResultDetailView.swift */; };
+		100000000000000000000009 /* aide_cas in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000019 /* aide_cas */; };
+		10000000000000000000000A /* Resources/zh in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001A /* zh resources */; };
+		100000000000000000000039 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000002C /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -16,6 +32,24 @@
 		100000000000000000000011 /* CalcoraIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalcoraIOSApp.swift; sourceTree = "<group>"; };
 		100000000000000000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		100000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		100000000000000000000014 /* CalcoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Engine/CalcoraEngine.swift; sourceTree = "<group>"; };
+		100000000000000000000015 /* CalcoraModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/CalcoraModels.swift; sourceTree = "<group>"; };
+		100000000000000000000016 /* CalcoraStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stores/CalcoraStore.swift; sourceTree = "<group>"; };
+		100000000000000000000017 /* CalculatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/CalculatorView.swift; sourceTree = "<group>"; };
+		10000000000000000000001B /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/HelpView.swift; sourceTree = "<group>"; };
+		10000000000000000000001C /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/HistoryView.swift; sourceTree = "<group>"; };
+		10000000000000000000001D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SettingsView.swift; sourceTree = "<group>"; };
+		10000000000000000000001E /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/TerminalView.swift; sourceTree = "<group>"; };
+		10000000000000000000001F /* ScriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ScriptView.swift; sourceTree = "<group>"; };
+		100000000000000000000025 /* PlotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/PlotView.swift; sourceTree = "<group>"; };
+		100000000000000000000026 /* ExpressionTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ExpressionTextView.swift; sourceTree = "<group>"; };
+		100000000000000000000027 /* NaturalMathView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/NaturalMathView.swift; sourceTree = "<group>"; };
+		100000000000000000000028 /* ResultDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ResultDetailView.swift; sourceTree = "<group>"; };
+		100000000000000000000018 /* CalcoraNative-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CalcoraNative-Bridging-Header.h; sourceTree = "<group>"; };
+		100000000000000000000019 /* aide_cas */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/aide_cas; sourceTree = "<group>"; };
+		10000000000000000000001A /* zh resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources/zh; sourceTree = "<group>"; };
+		10000000000000000000002A /* Localizable.strings (en) */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = Resources/en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		10000000000000000000002B /* Localizable.strings (zh-Hans) */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = zh-Hans; path = Resources/zh-Hans.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,6 +75,23 @@
 			children = (
 				100000000000000000000011 /* CalcoraIOSApp.swift */,
 				100000000000000000000012 /* ContentView.swift */,
+				100000000000000000000014 /* CalcoraEngine.swift */,
+				100000000000000000000015 /* CalcoraModels.swift */,
+				100000000000000000000016 /* CalcoraStore.swift */,
+				100000000000000000000017 /* CalculatorView.swift */,
+				10000000000000000000001B /* HelpView.swift */,
+				10000000000000000000001C /* HistoryView.swift */,
+				10000000000000000000001D /* SettingsView.swift */,
+				10000000000000000000001E /* TerminalView.swift */,
+				10000000000000000000001F /* ScriptView.swift */,
+				100000000000000000000025 /* PlotView.swift */,
+				100000000000000000000026 /* ExpressionTextView.swift */,
+				100000000000000000000027 /* NaturalMathView.swift */,
+				100000000000000000000028 /* ResultDetailView.swift */,
+				100000000000000000000018 /* CalcoraNative-Bridging-Header.h */,
+				100000000000000000000019 /* aide_cas */,
+				10000000000000000000001A /* zh resources */,
+				10000000000000000000002C /* Localizable.strings */,
 				100000000000000000000013 /* Assets.xcassets */,
 			);
 			path = CalcoraIOS;
@@ -54,12 +105,24 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXVariantGroup section */
+		10000000000000000000002C /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				10000000000000000000002A /* Localizable.strings (en) */,
+				10000000000000000000002B /* Localizable.strings (zh-Hans) */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
 /* Begin PBXNativeTarget section */
 		100000000000000000000040 /* CalcoraIOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 100000000000000000000060 /* Build configuration list for PBXNativeTarget "CalcoraIOS" */;
 			buildPhases = (
-				100000000000000000000023 /* Build CalcoraShared */,
+				100000000000000000000023 /* Build Calcora native engine */,
 				100000000000000000000020 /* Sources */,
 				100000000000000000000021 /* Frameworks */,
 				100000000000000000000022 /* Resources */,
@@ -101,25 +164,28 @@
 			buildActionMask = 2147483647;
 			files = (
 				100000000000000000000003 /* Assets.xcassets in Resources */,
+				100000000000000000000009 /* aide_cas in Resources */,
+				10000000000000000000000A /* Resources/zh in Resources */,
+				100000000000000000000039 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		100000000000000000000023 /* Build CalcoraShared */ = {
+		100000000000000000000023 /* Build Calcora native engine */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = ();
 			inputFileListPaths = ();
 			inputPaths = ();
-			name = "Build CalcoraShared";
+			name = "Build Calcora native engine";
 			outputFileListPaths = ();
-			outputPaths = ();
+			outputPaths = ("$(BUILT_PRODUCTS_DIR)/libcalcora.a");
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n./gradlew -p iosApp/shared embedAndSignAppleFrameworkForXcode\n\ncase \"${SDK_NAME:-}\" in\n  iphoneos*) native_target=iosArm64 ;;\n  iphonesimulator*)\n    case \"${CURRENT_ARCH:-${NATIVE_ARCH_ACTUAL:-}}\" in\n      arm64) native_target=iosSimulatorArm64 ;;\n      x86_64) native_target=iosX64 ;;\n      *) echo \"Unsupported simulator architecture: ${CURRENT_ARCH:-unknown}\" >&2; exit 2 ;;\n    esac\n    ;;\n  *) echo \"Unsupported Apple SDK: ${SDK_NAME:-unknown}\" >&2; exit 2 ;;\nesac\n\nnative_library=\"$SRCROOT/shared/build/native/$native_target/libcalcora.a\"\ntest -f \"$native_library\"\ncp -f \"$native_library\" \"$BUILT_PRODUCTS_DIR/libcalcora.a\"\n";
+			shellScript = "cd \"$SRCROOT/..\"\n\ncase \"${SDK_NAME:-}\" in\n  iphoneos*) native_target=iosArm64 ;;\n  iphonesimulator*)\n    case \"${CURRENT_ARCH:-${NATIVE_ARCH_ACTUAL:-}}\" in\n      arm64) native_target=iosSimulatorArm64 ;;\n      x86_64) native_target=iosX64 ;;\n      *) echo \"Unsupported simulator architecture: ${CURRENT_ARCH:-unknown}\" >&2; exit 2 ;;\n    esac\n    ;;\n  *) echo \"Unsupported Apple SDK: ${SDK_NAME:-unknown}\" >&2; exit 2 ;;\nesac\n\noutput=\"$TARGET_TEMP_DIR/calcora-native\"\nrm -rf \"$output\"\nmkdir -p \"$output\"\n./iosApp/native/build-native.sh \"$native_target\" \"$output\"\ncp -f \"$output/libcalcora.a\" \"$BUILT_PRODUCTS_DIR/libcalcora.a\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -130,6 +196,19 @@
 			files = (
 				100000000000000000000001 /* CalcoraIOSApp.swift in Sources */,
 				100000000000000000000002 /* ContentView.swift in Sources */,
+				100000000000000000000004 /* CalcoraEngine.swift in Sources */,
+				100000000000000000000005 /* CalcoraModels.swift in Sources */,
+				100000000000000000000006 /* CalcoraStore.swift in Sources */,
+				100000000000000000000007 /* CalculatorView.swift in Sources */,
+				10000000000000000000000B /* HelpView.swift in Sources */,
+				10000000000000000000000C /* HistoryView.swift in Sources */,
+				10000000000000000000000D /* SettingsView.swift in Sources */,
+				10000000000000000000000E /* TerminalView.swift in Sources */,
+				10000000000000000000000F /* ScriptView.swift in Sources */,
+				100000000000000000000024 /* PlotView.swift in Sources */,
+				100000000000000000000036 /* ExpressionTextView.swift in Sources */,
+				100000000000000000000037 /* NaturalMathView.swift in Sources */,
+				100000000000000000000038 /* ResultDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,6 +226,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CalcoraIOS/Info.plist;
+				HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../app/src/main/cpp";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
@@ -157,6 +237,7 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = CalcoraIOS/CalcoraNative-Bridging-Header.h;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -172,6 +253,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CalcoraIOS/Info.plist;
+				HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../app/src/main/cpp";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
@@ -182,6 +264,7 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = CalcoraIOS/CalcoraNative-Bridging-Header.h;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
