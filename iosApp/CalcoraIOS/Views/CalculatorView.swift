@@ -17,19 +17,19 @@ struct CalculatorView: View {
     }
 
     private let functionButtons = [
-        "sin(□)", "cos(□)", "tan(□)", "asin(□)", "acos(□)", "atan(□)",
-        "sqrt(□)", "log(□)", "ln(□)", "exp(□)", "abs(□)", "floor(□)", "ceil(□)",
-        "^", "integrate(□,x)", "integrate(□,x,0,1)", "diff(□,x)", "limit(□,x=0)", "sum(□,k,1,n)",
-        "plot(□,x=-5..5)", "plot3d(□,x=-5..5,y=-5..5)"
+        "sin()", "cos()", "tan()", "asin()", "acos()", "atan()",
+        "sqrt()", "log()", "ln()", "exp()", "abs()", "floor()", "ceil()",
+        "^", "integrate(,x)", "integrate(,x,0,1)", "diff(,x)", "limit(,x=0)", "sum(,k,1,n)",
+        "plot(,x=-5..5)", "plot3d(,x=-5..5,y=-5..5)"
     ]
     private let casButtons = [
-        "solve(□=0,x)", "factor(□)", "expand(□)", "normal(□)",
-        "subst(□,x=□)", "diff(□,x)", "diff(□,x,2)",
-        "integrate(□,x)", "integrate(□,x,0,1)", "limit(□,x=0)",
-        "sum(□,k,1,n)", "det(□)", "inv(□)", "transpose(□)", "rank(□)",
-        "gcd(□,□)", "lcm(□,□)", "ifactor(□)", "simplify(□)",
-        "plot(□,x=-5..5)", "plot3d(□,x=-5..5,y=-5..5)", "plotparam(□,t)",
-        "makelist(□,k,1,n)", "makemat(□,n,p)", "fft(□)", "ifft(□)", "help(□)"
+        "solve(=0,x)", "factor()", "expand()", "normal()",
+        "subst(,x=)", "diff(,x)", "diff(,x,2)",
+        "integrate(,x)", "integrate(,x,0,1)", "limit(,x=0)",
+        "sum(,k,1,n)", "det()", "inv()", "transpose()", "rank()",
+        "gcd(,)", "lcm(,)", "ifactor()", "simplify()",
+        "plot(,x=-5..5)", "plot3d(,x=-5..5,y=-5..5)", "plotparam(,t)",
+        "makelist(,k,1,n)", "makemat(,n,p)", "fft()", "ifft()", "help()"
     ]
     private let variableButtons = [
         "x", "y", "z", "a", "b", "c", "n", "t", "k", "m", "ans", "π", "e",
@@ -338,14 +338,14 @@ struct CalculatorView: View {
 
     private func insert(_ token: String) {
         let range = selectedRange ?? NSRange(location: (store.expression as NSString).length, length: 0)
-        let offset = token.firstIndex(of: "□").map { token.distance(from: token.startIndex, to: $0) } ?? (token as NSString).length
+        let offset = token.firstIndex(of: "(").map { token.distance(from: token.startIndex, to: $0) + 1 } ?? (token as NSString).length
         guard let stringRange = Range(range, in: store.expression) else {
             store.expression += token
-            selectedRange = NSRange(location: (store.expression as NSString).length - (token as NSString).length + offset, length: token.contains("□") ? 1 : 0)
+            selectedRange = NSRange(location: (store.expression as NSString).length - (token as NSString).length + offset, length: 0)
             return
         }
         store.expression.replaceSubrange(stringRange, with: token)
-        selectedRange = NSRange(location: range.location + offset, length: token.contains("□") ? 1 : 0)
+        selectedRange = NSRange(location: range.location + offset, length: 0)
     }
 
     private func insertSmartParentheses() {

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import UIKit
+import WebKit
 
 // MARK: - Public SwiftUI wrapper
 
@@ -43,7 +44,7 @@ struct NaturalMathInputView: UIViewRepresentable {
             parent.selectedRange = view.selectedRange
         }
         func naturalMathDrawingViewDidCommit(_ view: NaturalMathDrawingView) {
-            parent.onCommit?(view.effectiveText)
+            parent.onCommit?(view.text)
         }
     }
 }
@@ -61,12 +62,12 @@ struct NaturalMathEditorView: View {
     }
 
     private let templates = [
-        ("Fraction", "(□)/(□)"),
-        ("Power", "(□)^(□)"),
-        ("Root", "sqrt(□)"),
-        ("Integral", "integrate(□,x)"),
-        ("Derivative", "diff(□,x)"),
-        ("Sum", "sum(□,k,1,n)")
+        ("Fraction", "()/()"),
+        ("Power", "()^()"),
+        ("Root", "sqrt()"),
+        ("Integral", "integrate(,x)"),
+        ("Derivative", "diff(,x)"),
+        ("Sum", "sum(,k,1,n)")
     ]
 
     var body: some View {
@@ -102,7 +103,7 @@ struct NaturalMathEditorView: View {
 
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
-                        ForEach(["√", "π", "∞", "≤", "≥", "≠", "∑", "∫", "→", "□"], id: \.self) { token in
+                        ForEach(["√", "π", "∞", "≤", "≥", "≠", "∑", "∫", "→", "()"], id: \.self) { token in
                             Button(token) { insert(token == "→" ? "->" : token) }
                                 .font(.system(size: 20, design: .monospaced))
                                 .frame(maxWidth: .infinity, minHeight: 42)
@@ -127,14 +128,14 @@ struct NaturalMathEditorView: View {
 
     private func insert(_ token: String) {
         let range = selectedRange ?? NSRange(location: text.utf16.count, length: 0)
-        let placeholder = token.firstIndex(of: "□").map { token.distance(from: token.startIndex, to: $0) } ?? token.utf16.count
+        let cursor = token.firstIndex(of: "(").map { token.distance(from: token.startIndex, to: $0) + 1 } ?? token.utf16.count
         guard let swiftRange = Range(range, in: text) else {
             text += token
-            selectedRange = NSRange(location: text.utf16.count - token.utf16.count + placeholder, length: token.contains("□") ? 1 : 0)
+            selectedRange = NSRange(location: text.utf16.count - token.utf16.count + cursor, length: 0)
             return
         }
         text.replaceSubrange(swiftRange, with: token)
-        selectedRange = NSRange(location: range.location + placeholder, length: token.contains("□") ? 1 : 0)
+        selectedRange = NSRange(location: range.location + cursor, length: 0)
     }
 }
 
@@ -149,19 +150,12 @@ protocol NaturalMathDrawingViewDelegate: AnyObject {
 final class NaturalMathDrawingView: UIView, UITextViewDelegate {
     weak var delegate: NaturalMathDrawingViewDelegate?
 
-    private struct MathSlot {
-        let id: Int
-        var range: NSRange
-    }
-
     var text: String {
         didSet {
             guard !isUpdatingTextView else { return }
             isUpdatingTextView = true
             hiddenTextView.text = text
             isUpdatingTextView = false
-            slotValues.removeAll()
-            activeSlot = nil
             setNeedsLayout()
             setNeedsDisplay()
         }
@@ -188,20 +182,6 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
     private let hiddenTextView = UITextView()
     private var isUpdatingTextView = false
     private var layout = MathLayout.zero
-    private var slots: [MathSlot] = []
-    private var activeSlot: MathSlot?
-    private var slotValues: [Int: String] = [:]
-
-    var effectiveText: String {
-        guard !slotValues.isEmpty else { return text }
-        var result = text
-        for slot in slots.sorted(by: { $0.range.location > $1.range.location }) {
-            if let value = slotValues[slot.id], let swiftRange = Range(slot.range, in: result) {
-                result.replaceSubrange(swiftRange, with: value)
-            }
-        }
-        return result
-    }
 
     init(text: String = "", selectedRange: NSRange = NSRange(location: 0, length: 0)) {
         self.text = text
@@ -303,19 +283,9 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
     private func rebuildLayout() {
         layout = MathTypesetter.layout(
             source: text,
-            slotValues: slotValues,
             fontSize: fontSize,
             syntaxHighlighting: syntaxHighlighting
         )
-        slots.removeAll(keepingCapacity: true)
-        let ns = text as NSString
-        var search = NSRange(location: 0, length: ns.length)
-        while search.length > 0 {
-            let found = ns.range(of: "□", options: [], range: search)
-            guard found.location != NSNotFound else { break }
-            slots.append(MathSlot(id: found.location, range: found))
-            search = NSRange(location: NSMaxRange(found), length: ns.length - NSMaxRange(found))
-        }
         setNeedsDisplay()
     }
 
@@ -325,15 +295,10 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         let localY = point.y - max(4, (bounds.height - layout.height) / 2)
         if let box = layout.boxes.first(where: { $0.frame.insetBy(dx: -7, dy: -7).contains(CGPoint(x: localX, y: localY)) }) {
             let offset = box.offset
-            let ns = text as NSString
-            if offset < ns.length, ns.substring(with: NSRange(location: offset, length: 1)) == "□" {
-                selectedRange = NSRange(location: offset, length: 1)
-                activeSlot = slots.first { $0.range.location == offset }
-                hiddenTextView.becomeFirstResponder()
-                return
-            }
+            selectedRange = NSRange(location: offset, length: 0)
+            hiddenTextView.becomeFirstResponder()
+            return
         }
-        activeSlot = nil
         let caret = layout.carets.min {
             abs($0.x - localX) + abs((($0.top + $0.bottom) / 2) - localY) * 1.4
                 < abs($1.x - localX) + abs((($1.top + $1.bottom) / 2) - localY) * 1.4
@@ -374,10 +339,6 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         isUpdatingTextView = true
         text = textView.text
         isUpdatingTextView = false
-        if let activeSlot {
-            let end = min(NSMaxRange(activeSlot.range), text.utf16.count)
-            selectedRange = NSRange(location: end, length: 0)
-        }
         delegate?.naturalMathDrawingViewDidChangeText(self)
         rebuildLayout()
     }
@@ -395,24 +356,6 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         if replacement == "\n" {
             delegate?.naturalMathDrawingViewDidCommit(self)
             return false
-        }
-        if let activeSlot {
-            if NSLocationInRange(range.location, activeSlot.range) || range == activeSlot.range {
-                if replacement.isEmpty {
-                    var value = slotValues[activeSlot.id] ?? ""
-                    if value.isEmpty {
-                        self.activeSlot = nil
-                        return true
-                    }
-                    value.removeLast()
-                    slotValues[activeSlot.id] = value
-                } else {
-                    slotValues[activeSlot.id, default: ""] += replacement
-                }
-                rebuildLayout()
-                return false
-            }
-            self.activeSlot = nil
         }
         return true
     }
@@ -493,7 +436,7 @@ private struct MathLayout {
 // MARK: - Simplified typesetter
 
 private enum MathTypesetter {
-    static func layout(source: String, slotValues: [Int: String], fontSize: CGFloat, syntaxHighlighting: Bool) -> MathLayout {
+    static func layout(source: String, fontSize: CGFloat, syntaxHighlighting: Bool) -> MathLayout {
         guard !source.isEmpty else {
             var empty = MathLayout()
             empty.height = fontSize
@@ -502,7 +445,7 @@ private enum MathTypesetter {
         }
         let ns = source as NSString
         let node = MathParser.parse(ns, NSRange(location: 0, length: ns.length))
-        let painter = Painter(fontSize: fontSize, syntaxHighlighting: syntaxHighlighting, slotValues: slotValues)
+        let painter = Painter(fontSize: fontSize, syntaxHighlighting: syntaxHighlighting)
         return painter.layout(node)
     }
 }
@@ -510,12 +453,10 @@ private enum MathTypesetter {
 private final class Painter {
     let fontSize: CGFloat
     let syntaxHighlighting: Bool
-    let slotValues: [Int: String]
 
-    init(fontSize: CGFloat, syntaxHighlighting: Bool, slotValues: [Int: String]) {
+    init(fontSize: CGFloat, syntaxHighlighting: Bool) {
         self.fontSize = fontSize
         self.syntaxHighlighting = syntaxHighlighting
-        self.slotValues = slotValues
     }
 
     func layout(_ node: MathNode) -> MathLayout {
@@ -555,48 +496,31 @@ private final class Painter {
         let font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
         let color = Self.color(for: value, syntaxHighlighting: syntaxHighlighting)
         let ns = value as NSString
-        var x: CGFloat = 0
-        var carets: [MathCaret] = []
-        var pending = ""
-        var lineHeight = max(size, 16)
 
-        func flushPending() {
-            guard !pending.isEmpty else { return }
-            let pendingSize = (pending as NSString).size(withAttributes: [.font: font])
-            layout.runs.append(MathRun(string: pending, font: font, color: color, frame: CGRect(x: x, y: 0, width: pendingSize.width, height: pendingSize.height)))
-            x += pendingSize.width
-            lineHeight = max(lineHeight, pendingSize.height)
-            pending = ""
+        if value.isEmpty {
+            let boxWidth = max(14, size * 0.7)
+            let boxHeight = max(16, size * 0.72)
+            layout.width = boxWidth
+            layout.height = boxHeight
+            layout.baseline = font.ascender
+            layout.boxes.append(MathBox(frame: CGRect(x: 0, y: 0, width: boxWidth, height: boxHeight), offset: range.location))
+            layout.carets = [
+                MathCaret(offset: range.location, x: 0, top: 0, bottom: boxHeight),
+                MathCaret(offset: NSMaxRange(range), x: boxWidth, top: 0, bottom: boxHeight)
+            ]
+            return layout
         }
 
-        carets.append(MathCaret(offset: range.location, x: 0, top: 0, bottom: lineHeight))
-        for index in 0..<ns.length {
-            let char = ns.substring(with: NSRange(location: index, length: 1))
-            if char == "□" {
-                flushPending()
-                let slotOffset = range.location + index
-                let value = slotValues[slotOffset] ?? ""
-                let valueSize = value.isEmpty ? .zero : (value as NSString).size(withAttributes: [.font: font])
-                let boxWidth = value.isEmpty ? max(14, size * 0.7) : max(18, valueSize.width + 8)
-                let boxHeight = max(16, valueSize.height + 4)
-                lineHeight = max(lineHeight, boxHeight)
-                let boxFrame = CGRect(x: x, y: (lineHeight - boxHeight) / 2, width: boxWidth, height: boxHeight)
-                layout.boxes.append(MathBox(frame: boxFrame, offset: slotOffset))
-                if !value.isEmpty {
-                    let valueFrame = CGRect(x: x + 4, y: (lineHeight - valueSize.height) / 2, width: valueSize.width, height: valueSize.height)
-                    layout.runs.append(MathRun(string: value, font: font, color: .label, frame: valueFrame))
-                }
-                x += boxWidth
-            } else {
-                pending += char
-            }
-            carets.append(MathCaret(offset: range.location + index + 1, x: x, top: 0, bottom: lineHeight))
-        }
-        flushPending()
-        layout.width = x
-        layout.height = lineHeight
+        let textSize = ns.size(withAttributes: [.font: font])
+        layout.width = textSize.width
+        layout.height = max(size, textSize.height)
         layout.baseline = font.ascender
-        layout.carets = carets
+        layout.runs.append(MathRun(string: value, font: font, color: color, frame: CGRect(x: 0, y: 0, width: textSize.width, height: textSize.height)))
+        for index in 0...ns.length {
+            let prefix = ns.substring(to: index)
+            let width = (prefix as NSString).size(withAttributes: [.font: font]).width
+            layout.carets.append(MathCaret(offset: range.location + index, x: width, top: 0, bottom: layout.height))
+        }
         return layout
     }
 
@@ -926,23 +850,18 @@ private enum MathParser {
         var result: [NSRange] = []
         var start = range.location
         var depth = 0
-        guard range.length > 0 else { return result }
+        guard range.length > 0 else { return [range] }
         for index in range.location..<NSMaxRange(range) {
             let char = source.substring(with: NSRange(location: index, length: 1))
             if char == "(" || char == "[" || char == "{" { depth += 1 }
             if char == ")" || char == "]" || char == "}" { depth -= 1 }
             if char == "," && depth == 0 {
-                let arg = NSRange(location: start, length: index - start)
-                if arg.length > 0 || start < index {
-                    result.append(arg)
-                }
+                result.append(NSRange(location: start, length: index - start))
                 start = index + 1
             }
         }
         let last = NSRange(location: start, length: NSMaxRange(range) - start)
-        if last.length > 0 {
-            result.append(last)
-        }
+        result.append(last)
         return result
     }
 }
