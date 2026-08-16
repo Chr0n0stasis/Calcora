@@ -73,7 +73,12 @@ struct CalculatorView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
-                    ExpressionTextView(text: $store.expression, selectedRange: $selectedRange)
+                    NaturalMathInputView(
+                        text: $store.expression,
+                        selectedRange: $selectedRange,
+                        fontSize: 28,
+                        onCommit: { store.evaluate() }
+                    )
                         .frame(maxHeight: .infinity)
                         .accessibilityLabel(LocalizedStringKey("Expression input"))
                     
