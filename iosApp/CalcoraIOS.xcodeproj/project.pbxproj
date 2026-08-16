@@ -185,7 +185,7 @@
 			outputPaths = ("$(BUILT_PRODUCTS_DIR)/libcalcora.a");
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n\ncase \"${SDK_NAME:-}\" in\n  iphoneos*) native_target=iosArm64 ;;\n  iphonesimulator*)\n    arch=\"${CURRENT_ARCH:-undefined_arch}\"\n    if [ \"$arch\" = \"undefined_arch\" ] || [ -z \"$arch\" ]; then\n      arch=\"${ARCHS%% *}\"\n    fi\n    if [ \"$arch\" = \"undefined_arch\" ] || [ -z \"$arch\" ]; then\n      if [ \"${NATIVE_ARCH_ACTUAL}\" != \"\" ]; then\n        arch=\"${NATIVE_ARCH_ACTUAL}\"\n      else\n        arch=\"$(uname -m)\"\n      fi\n    fi\n    case \"$arch\" in\n      arm64) native_target=iosSimulatorArm64 ;;\n      x86_64) native_target=iosX64 ;;\n      *) echo \\\"Unsupported simulator architecture: $arch\\\" >&2; exit 2 ;;\n    esac\n    ;;\n  *) echo \"Unsupported Apple SDK: ${SDK_NAME:-unknown}\" >&2; exit 2 ;;\nesac\n\noutput=\"$TARGET_TEMP_DIR/calcora-native\"\nrm -rf \"$output\"\nmkdir -p \"$output\"\n./iosApp/native/build-native.sh \"$native_target\" \"$output\"\ncp -f \"$output/libcalcora.a\" \"$BUILT_PRODUCTS_DIR/libcalcora.a\"\n";
+			shellScript = "cd \"$SRCROOT/..\"\n\ncase \"${SDK_NAME:-}\" in\n  iphoneos*) native_target=iosArm64 ;;\n  iphonesimulator*)\n    arch=\"${CURRENT_ARCH:-undefined_arch}\"\n    if [ \"$arch\" = \"undefined_arch\" ] || [ -z \"$arch\" ]; then\n      arch=\"${ARCHS%% *}\"\n    fi\n    if [ \"$arch\" = \"undefined_arch\" ] || [ -z \"$arch\" ]; then\n      if [ \"${NATIVE_ARCH_ACTUAL}\" != \"\" ]; then\n        arch=\"${NATIVE_ARCH_ACTUAL}\"\n      else\n        arch=\"$(uname -m)\"\n      fi\n    fi\n    case \"$arch\" in\n      arm64) native_target=iosSimulatorArm64 ;;\n      x86_64) native_target=iosX64 ;;\n      *) echo \\\"Unsupported simulator architecture: $arch\\\" >&2; exit 2 ;;\n    esac\n    ;;\n  *) echo \"Unsupported Apple SDK: ${SDK_NAME:-unknown}\" >&2; exit 2 ;;\nesac\n\noutput=\"$TARGET_TEMP_DIR/calcora-native\"\nrm -rf \"$output\"\nmkdir -p \"$output\"\n./iosApp/native/build-native.sh \"$native_target\" \"$output\"\nmkdir -p \"$BUILT_PRODUCTS_DIR\" && cp -f \"$output/libcalcora.a\" \"$BUILT_PRODUCTS_DIR/libcalcora.a\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -229,7 +229,7 @@
 				HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../app/src/main/cpp";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				LIBRARY_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
+				LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(BUILT_PRODUCTS_DIR)");
 				MARKETING_VERSION = 0.3.2;
 				OTHER_LDFLAGS = "$(inherited) -lcalcora -lc++ -lz -liconv";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.libchara.calcora;
@@ -256,7 +256,7 @@
 				HEADER_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../app/src/main/cpp";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				LIBRARY_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
+				LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(BUILT_PRODUCTS_DIR)");
 				MARKETING_VERSION = 0.3.2;
 				OTHER_LDFLAGS = "$(inherited) -lcalcora -lc++ -lz -liconv";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.libchara.calcora;
