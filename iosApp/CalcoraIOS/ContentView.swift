@@ -8,9 +8,7 @@ struct ContentView: View {
         Group {
             if horizontalSizeClass == .regular {
                 NavigationSplitView {
-                    List(AppTab.allCases, selection: $store.selectedTab) { tab in
-                        Label(tab.title, systemImage: tab.symbol).tag(tab)
-                    }
+                    List(selection: $store.selectedTab) { ForEach(AppTab.allCases) { tab in Label(tab.title, systemImage: tab.symbol).tag(tab) } }
                     .navigationTitle("Calcora")
                     .listStyle(.sidebar)
                 } detail: {
@@ -38,3 +36,4 @@ struct ContentView: View {
         }
     }
 }
+

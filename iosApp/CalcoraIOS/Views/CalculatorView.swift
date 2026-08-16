@@ -17,7 +17,7 @@ struct CalculatorView: View {
         ["7", "8", "9", "÷"], ["4", "5", "6", "×"], ["1", "2", "3", "−"], ["0", ".", "(", ")"],
         ["+", "−", "*", "/"], ["^", "%", ",", "pi"]
     ]
-    private let functionButtons = ["sin(", "cos(", "tan(", "sqrt(", "log(", "ln(", "exp(", "abs(", "floor(", "ceil(")]
+    private let functionButtons = ["sin(", "cos(", "tan(", "sqrt(", "log(", "ln(", "exp(", "abs(", "floor(", "ceil("]
     private let casButtons = ["solve(", "factor(", "expand(", "diff(", "integrate(", "limit(", "sum(", "det(", "simplify(", "help("]
     private let variableButtons = ["x", "y", "z", "t", "n", "ans", "pi", "e"]
 

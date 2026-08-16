@@ -18,9 +18,9 @@ struct PlotView: View {
             Group {
                 if items.isEmpty {
                     VStack(spacing: 10) {
-                        Image(systemName: "chart.xyaxis.line").font(.largeTitle).foregroundStyle(.secondary)
+                        Image(systemName: "chart.xyaxis.line").font(.largeTitle).foregroundColor(.secondary)
                         Text("No plot data").font(.headline)
-                        Text("Evaluate a plot expression first.").font(.subheadline).foregroundStyle(.secondary)
+                        Text("Evaluate a plot expression first.").font(.subheadline).foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
@@ -121,8 +121,8 @@ private struct PlotCanvas: View {
             case .surface3d: break
             }
         }
-        context.draw(Text(String(format: "x: %.4g … %.4g", bounds.xmin, bounds.xmax)).font(.caption).foregroundStyle(.secondary), at: CGPoint(x: rect.midX, y: rect.maxY + 28))
-        context.draw(Text(String(format: "y: %.4g … %.4g", bounds.ymin, bounds.ymax)).font(.caption).foregroundStyle(.secondary), at: CGPoint(x: 22, y: rect.midY), anchor: .center)
+        context.draw(Text(String(format: "x: %.4g … %.4g", bounds.xmin, bounds.xmax)).font(.caption).foregroundColor(.secondary), at: CGPoint(x: rect.midX, y: rect.maxY + 28))
+        context.draw(Text(String(format: "y: %.4g … %.4g", bounds.ymin, bounds.ymax)).font(.caption).foregroundColor(.secondary), at: CGPoint(x: 22, y: rect.midY), anchor: .center)
     }
 
     private func drawSurface(_ items: [PlotItem], context: inout GraphicsContext, rect: CGRect) {
@@ -164,7 +164,7 @@ private struct PlotCanvas: View {
                 context.fill(path, with: .color(Color(hue: 0.68 - 0.68 * t, saturation: 0.72, brightness: 0.92).opacity(0.36)))
             }
         }
-        context.draw(Text(String(format: "x: %.4g … %.4g   y: %.4g … %.4g", xmin, xmax, ymin, ymax)).font(.caption).foregroundStyle(.secondary), at: CGPoint(x: rect.midX, y: rect.maxY + 28))
+        context.draw(Text(String(format: "x: %.4g … %.4g   y: %.4g … %.4g", xmin, xmax, ymin, ymax)).font(.caption).foregroundColor(.secondary), at: CGPoint(x: rect.midX, y: rect.maxY + 28))
     }
 
     private func stroke(_ a: CGPoint, _ b: CGPoint, color: Color, context: inout GraphicsContext) {
@@ -202,4 +202,5 @@ private struct PlotCanvas: View {
 
     private func color(_ index: Int) -> Color { [.blue, .orange, .green, .purple, .pink][index % 5] }
 }
+
 

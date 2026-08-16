@@ -227,7 +227,7 @@ final class CalcoraStore: ObservableObject {
     private func sanitizedScriptName(_ name: String) -> String {
         let base = name.replacingOccurrences(of: ".xcas", with: "", options: .caseInsensitive)
         let allowed = base.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) || "-_ .".unicodeScalars.contains($0) }
-        return String(allowed.map { Character(String(String.UnicodeScalarView(allowed))) }).trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: " ", with: "_")
+        return String(String.UnicodeScalarView(allowed)).trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: " ", with: "_")
     }
 
     private func appendHistory(_ value: CalcResult) {
@@ -315,15 +315,17 @@ final class CalcoraStore: ObservableObject {
     private static func decode<T: Decodable>(_ type: T.Type, key: String) -> T? { guard let data = UserDefaults.standard.data(forKey: key) else { return nil }; return try? JSONDecoder().decode(type, from: data) }
 
     private static let fallbackHelp: [HelpEntry] = [
-        HelpEntry(name: "sin", description: "Sine function.", signature: "x", examples: ["sin(pi/2)"]),
-        HelpEntry(name: "cos", description: "Cosine function.", signature: "x", examples: ["cos(0)"]),
-        HelpEntry(name: "sqrt", description: "Square root.", signature: "x", examples: ["sqrt(2)"]),
-        HelpEntry(name: "solve", description: "Solve an equation or a system.", signature: "equation, variable", examples: ["solve(x^2=4,x)"]),
-        HelpEntry(name: "factor", description: "Factor an expression.", signature: "expression", examples: ["factor(x^2-1)"]),
-        HelpEntry(name: "diff", description: "Differentiate an expression.", signature: "expression, variable", examples: ["diff(sin(x),x)"]),
-        HelpEntry(name: "integrate", description: "Integrate an expression.", signature: "expression, variable", examples: ["integrate(x^2,x)"]),
-        HelpEntry(name: "plot", description: "Plot a function.", signature: "expression, variable", examples: ["plot(sin(x),x)"])
+        HelpEntry(name: "sin", description: "Sine function.", examples: ["sin(pi/2)"], signature: "x"),
+        HelpEntry(name: "cos", description: "Cosine function.", examples: ["cos(0)"], signature: "x"),
+        HelpEntry(name: "sqrt", description: "Square root.", examples: ["sqrt(2)"], signature: "x"),
+        HelpEntry(name: "solve", description: "Solve an equation or a system.", examples: ["solve(x^2=4,x)"], signature: "equation, variable"),
+        HelpEntry(name: "factor", description: "Factor an expression.", examples: ["factor(x^2-1)"], signature: "expression"),
+        HelpEntry(name: "diff", description: "Differentiate an expression.", examples: ["diff(sin(x),x)"], signature: "expression, variable"),
+        HelpEntry(name: "integrate", description: "Integrate an expression.", examples: ["integrate(x^2,x)"], signature: "expression, variable"),
+        HelpEntry(name: "plot", description: "Plot a function.", examples: ["plot(sin(x),x)"], signature: "expression, variable")
     ]
 }
+
+
 
 

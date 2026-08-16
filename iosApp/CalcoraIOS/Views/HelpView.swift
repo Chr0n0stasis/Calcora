@@ -55,12 +55,13 @@ struct HelpDetailView: View {
             }
             if !entry.related.isEmpty {
                 Section("Related") { ForEach(entry.related, id: \.self) { Text($0).font(.system(.body, design: .monospaced)) } }
+            }
         }
         .navigationTitle(entry.name)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button { UIPasteboard.general.string = entry.syntax } label: { Image(systemName: "doc.on.doc") }.accessibilityLabel("Copy signature")
-                Button { store.evaluateAndAppend("help(\"\(entry.name)\")") } label: { Image(systemName: "terminal") }.accessibilityLabel("Evaluate help command")
+                Button { store.evaluateAndAppend("help(\"" + entry.name + "\")") } label: { Image(systemName: "terminal") }.accessibilityLabel("Evaluate help command")
             }
         }
     }

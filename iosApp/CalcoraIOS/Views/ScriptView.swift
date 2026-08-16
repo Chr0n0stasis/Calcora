@@ -51,7 +51,7 @@ struct ScriptView: View {
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.plainText, .text, UTType(exportedAs: "com.example.calcora.xcas")], allowsMultipleSelection: false) { result in
                 if case .success(let urls) = result, let url = urls.first { do { try store.importScript(from: url) } catch { errorMessage = error.localizedDescription } }
             }
-            .fileExporter(isPresented: $showingExporter, document: $exportDocument, contentType: .plainText, defaultFilename: store.scriptName) { result in
+            .fileExporter(isPresented: $showingExporter, document: exportDocument, contentType: .plainText, defaultFilename: store.scriptName) { result in
                 if case .failure(let error) = result { errorMessage = error.localizedDescription }
             }
         }
@@ -106,5 +106,6 @@ struct ScriptView: View {
         do { try store.deleteScript(named: name); store.objectWillChange.send() } catch { errorMessage = error.localizedDescription }
     }
 }
+
 
 
