@@ -99,3 +99,11 @@
 "Scripts are stored in the app's private Documents support area." = "脚本保存在 App 的私有文档目录中。";
 "Precision: %d" = "精度：%d";
 "History limit: %d" = "历史条数：%d";
+"Auto" = "自动";
+"Exact" = "精确";
+"Approx" = "近似";
+"Raw Xcas" = "Xcas 源码";
+"Insert equals sign" = "输入等号";
+"Clear previous operand" = "清除前一个运算项";
+"Categories" = "分类";
+"Results" = "搜索结果";

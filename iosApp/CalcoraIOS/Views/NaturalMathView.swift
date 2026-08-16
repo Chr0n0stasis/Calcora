@@ -293,6 +293,11 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         let right = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipe(_:)))
         right.direction = .right
         addGestureRecognizer(right)
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        pan.minimumNumberOfTouches = 1
+        pan.maximumNumberOfTouches = 1
+        pan.cancelsTouchesInView = false
+        addGestureRecognizer(pan)
     }
 
     private func rebuildLayout() {
@@ -356,6 +361,14 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         }
     }
 
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        guard hiddenTextView.isFirstResponder else { return }
+        let point = gesture.location(in: self)
+        let localX = point.x - 10
+        guard let caret = layout.carets.min(by: { abs($0.x - localX) < abs($1.x - localX) }) else { return }
+        selectedRange = NSRange(location: caret.offset, length: 0)
+    }
+
     func textViewDidChange(_ textView: UITextView) {
         guard !isUpdatingTextView else { return }
         isUpdatingTextView = true
@@ -396,7 +409,6 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
                 } else {
                     slotValues[activeSlot.id, default: ""] += replacement
                 }
-                selectedRange = NSRange(location: activeSlot.range.location, length: 1)
                 rebuildLayout()
                 return false
             }
@@ -725,19 +737,51 @@ private final class Painter {
     }
 
     private func integralLayout(lower: MathNode?, upper: MathNode?, body: MathNode, range: NSRange) -> MathLayout {
-        let symbol = "∫"
-        let symbolNode = MathNode.text(symbol, range)
-        let symbolLayout = scriptLayout(base: symbolNode, sup: upper, sub: lower, range: range)
-        let bodyLayout = layoutNode(body, scale: 1)
-        return appendRow(symbolLayout, bodyLayout)
+        largeOperatorLayout(symbol: "∫", lower: lower, upper: upper, body: body, range: range)
     }
 
     private func summationLayout(lower: MathNode?, upper: MathNode?, body: MathNode, range: NSRange) -> MathLayout {
-        let symbol = "∑"
-        let symbolNode = MathNode.text(symbol, range)
-        let symbolLayout = scriptLayout(base: symbolNode, sup: upper, sub: lower, range: range)
+        largeOperatorLayout(symbol: "∑", lower: lower, upper: upper, body: body, range: range)
+    }
+
+    private func largeOperatorLayout(symbol: String, lower: MathNode?, upper: MathNode?, body: MathNode, range: NSRange) -> MathLayout {
+        let symbolFont = UIFont.systemFont(ofSize: fontSize * 1.55, weight: .regular)
+        let symbolSize = (symbol as NSString).size(withAttributes: [.font: symbolFont])
+        let upperLayout = upper.map { layoutNode($0, scale: 0.55) }
+        let lowerLayout = lower.map { layoutNode($0, scale: 0.55) }
         let bodyLayout = layoutNode(body, scale: 1)
-        return appendRow(symbolLayout, bodyLayout)
+        let symbolColumnWidth = max(symbolSize.width, max(upperLayout?.width ?? 0, lowerLayout?.width ?? 0) + 6)
+        let upperHeight = upperLayout?.height ?? 0
+        let lowerHeight = lowerLayout?.height ?? 0
+        let symbolY = upperHeight + 2
+        let lowerY = symbolY + symbolSize.height + 2
+        let height = lowerY + lowerHeight
+        var result = MathLayout()
+        result.width = symbolColumnWidth + bodyLayout.width + 8
+        result.height = height
+        result.baseline = symbolY + symbolSize.height * 0.5
+
+        result.runs.append(MathRun(string: symbol, font: symbolFont, color: .label, frame: CGRect(x: (symbolColumnWidth - symbolSize.width) / 2, y: symbolY, width: symbolSize.width, height: symbolSize.height)))
+        if let upperLayout {
+            let x = (symbolColumnWidth - upperLayout.width) / 2
+            result.runs.append(contentsOf: upperLayout.runs.map { MathRun(string: $0.string, font: $0.font, color: $0.color, frame: $0.frame.offsetBy(dx: x, dy: 0)) })
+            result.boxes.append(contentsOf: upperLayout.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: x, dy: 0), offset: $0.offset) })
+            result.carets.append(contentsOf: upperLayout.carets.map { MathCaret(offset: $0.offset, x: $0.x + x, top: $0.top, bottom: $0.bottom) })
+        }
+        if let lowerLayout {
+            let x = (symbolColumnWidth - lowerLayout.width) / 2
+            result.runs.append(contentsOf: lowerLayout.runs.map { MathRun(string: $0.string, font: $0.font, color: $0.color, frame: $0.frame.offsetBy(dx: x, dy: lowerY)) })
+            result.boxes.append(contentsOf: lowerLayout.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: x, dy: lowerY), offset: $0.offset) })
+            result.carets.append(contentsOf: lowerLayout.carets.map { MathCaret(offset: $0.offset, x: $0.x + x, top: $0.top + lowerY, bottom: $0.bottom + lowerY) })
+        }
+        let bodyX = symbolColumnWidth + 4
+        let bodyY = max(0, (height - bodyLayout.height) / 2)
+        result.runs.append(contentsOf: bodyLayout.runs.map { MathRun(string: $0.string, font: $0.font, color: $0.color, frame: $0.frame.offsetBy(dx: bodyX, dy: bodyY)) })
+        result.boxes.append(contentsOf: bodyLayout.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: bodyX, dy: bodyY), offset: $0.offset) })
+        result.carets.append(contentsOf: bodyLayout.carets.map { MathCaret(offset: $0.offset, x: $0.x + bodyX, top: $0.top + bodyY, bottom: $0.bottom + bodyY) })
+        result.carets.append(MathCaret(offset: range.location, x: 0, top: 0, bottom: height))
+        result.carets.append(MathCaret(offset: NSMaxRange(range), x: result.width, top: 0, bottom: height))
+        return result
     }
 
     private func derivativeLayout(body: MathNode, variable: MathNode, range: NSRange) -> MathLayout {

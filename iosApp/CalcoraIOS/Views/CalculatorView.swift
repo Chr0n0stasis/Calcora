@@ -19,7 +19,7 @@ struct CalculatorView: View {
     private let functionButtons = [
         "sin(□)", "cos(□)", "tan(□)", "asin(□)", "acos(□)", "atan(□)",
         "sqrt(□)", "log(□)", "ln(□)", "exp(□)", "abs(□)", "floor(□)", "ceil(□)",
-        "^", "integrate(□,x)", "diff(□,x)", "limit(□,x=0)", "sum(□,k,1,n)",
+        "^", "integrate(□,x)", "integrate(□,x,0,1)", "diff(□,x)", "limit(□,x=0)", "sum(□,k,1,n)",
         "plot(□,x=-5..5)", "plot3d(□,x=-5..5,y=-5..5)"
     ]
     private let casButtons = [
@@ -42,7 +42,7 @@ struct CalculatorView: View {
         ["7", "8", "9", "×"],
         ["4", "5", "6", "−"],
         ["1", "2", "3", "+"],
-        ["0", ".", "=", "EXE"]
+        ["0", ".", ",", "EXE"]
     ]
 
     var body: some View {
@@ -124,7 +124,7 @@ struct CalculatorView: View {
                                 rotation: CGSize(width: 0.62, height: -0.72),
                                 compact: true
                             )
-                            .frame(height: 170)
+                            .frame(height: 110)
                             .padding(.horizontal)
                             .padding(.bottom, 12)
                             .contentShape(Rectangle())
@@ -270,6 +270,12 @@ struct CalculatorView: View {
         .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(.primary.opacity(keyRole(for: key) == .number ? 0.08 : 0.16), lineWidth: 1))
         .shadow(color: .black.opacity(keyRole(for: key) == .execute ? 0.22 : 0.08), radius: keyRole(for: key) == .execute ? 7 : 3, y: keyRole(for: key) == .execute ? 4 : 2)
         .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 62)
+        .onLongPressGesture(minimumDuration: 0.45) {
+            handleLongPress(key)
+        }
+        .contextMenu {
+            longPressMenu(for: key)
+        }
     }
 
     private enum KeyRole { case number, clear, backspace, mathOperator, equals, execute }
@@ -319,6 +325,8 @@ struct CalculatorView: View {
             insert("=")
         case "EXE":
             store.evaluate()
+        case ",":
+            insert(",")
         case "÷": insert("/")
         case "×": insert("*")
         case "−": insert("-")
@@ -376,6 +384,61 @@ struct CalculatorView: View {
         guard let swiftRange = Range(range, in: store.expression) else { return }
         store.expression.replaceSubrange(swiftRange, with: suggestion)
         selectedRange = NSRange(location: range.location + (suggestion as NSString).length, length: 0)
+    }
+
+    private func handleLongPress(_ key: String) {
+        tapFeedback(style: .medium)
+        switch key {
+        case "EXE": insert("=")
+        case "×": insert("^()")
+        case "7": insert("x")
+        case "8": insert("y")
+        case "9": insert("z")
+        case "3": insert("e")
+        case "⌫": deletePreviousOperand()
+        default: break
+        }
+    }
+
+    @ViewBuilder
+    private func longPressMenu(for key: String) -> some View {
+        switch key {
+        case "EXE":
+            Button(LocalizedStringKey("Insert equals sign")) { insert("=") }
+        case "×":
+            Button("^()") { insert("^()") }
+        case "7":
+            Button("x") { insert("x") }
+        case "8":
+            Button("y") { insert("y") }
+        case "9":
+            Button("z") { insert("z") }
+        case "3":
+            Button("e") { insert("e") }
+        case "()":
+            Button("(") { insert("(") }
+            Button(")") { insert(")") }
+        case "⌫":
+            Button(LocalizedStringKey("Clear previous operand"), role: .destructive) { deletePreviousOperand() }
+        default:
+            EmptyView()
+        }
+    }
+
+    private func deletePreviousOperand() {
+        let ns = store.expression as NSString
+        let cursor = min(selectedRange?.location ?? ns.length, ns.length)
+        var index = max(0, cursor - 1)
+        while index > 0 {
+            let unit = ns.character(at: index)
+            let isOperator = [40, 41, 43, 45, 42, 47, 94, 44].contains(Int(unit))
+            if isOperator { break }
+            index -= 1
+        }
+        let range = NSRange(location: index, length: max(0, cursor - index))
+        guard range.length > 0, let swiftRange = Range(range, in: store.expression) else { return }
+        store.expression.removeSubrange(swiftRange)
+        selectedRange = NSRange(location: index, length: 0)
     }
 
     private func backspace() {

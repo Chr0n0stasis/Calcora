@@ -12,44 +12,25 @@ struct HelpView: View {
                         Text(LocalizedStringKey("Search by function name, alias, signature, description, related command, or example."))
                             .font(.callout).foregroundStyle(.secondary)
                     }
-                }
-                let grouped = Dictionary(grouping: store.searchHelp(), by: category(for:))
-                ForEach(categoryOrder, id: \.self) { category in
-                    if let entries = grouped[category], !entries.isEmpty {
-                        Section {
-                            ForEach(entries) { entry in
-                                HStack {
-                                    NavigationLink(value: entry) {
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            HStack {
-                                                Text(entry.name).font(.system(.body, design: .monospaced)).bold()
-                                                if !entry.aliases.isEmpty { Text(entry.aliases.joined(separator: ", ")).font(.caption).foregroundStyle(.tertiary) }
-                                            }
-                                            Text(entry.syntax).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
-                                            Text(entry.description).foregroundStyle(.secondary).lineLimit(2)
-                                            if let example = entry.examples.first {
-                                                Button {
-                                                    fillCalculator(with: example)
-                                                } label: {
-                                                    Label(example, systemImage: "play.circle")
-                                                        .font(.caption)
-                                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                                }
-                                                .buttonStyle(.borderless)
-                                            }
-                                        }
-                                    }
-                                    Button {
-                                        fillCalculator(with: entry.syntax)
-                                    } label: {
-                                        Image(systemName: "plus.circle.fill")
-                                    }
-                                    .buttonStyle(.borderless)
-                                    .accessibilityLabel("Insert \(entry.name)")
+                    Section(LocalizedStringKey("Categories")) {
+                        let grouped = Dictionary(grouping: store.searchHelp(), by: category(for:))
+                        ForEach(categoryOrder, id: \.self) { category in
+                            let entries = grouped[category] ?? []
+                            if !entries.isEmpty {
+                                NavigationLink {
+                                    HelpCategoryView(category: category, entries: entries)
+                                } label: {
+                                    categoryCard(category, count: entries.count)
                                 }
                             }
-                        } header: {
-                            Label(LocalizedStringKey(category), systemImage: categorySymbol(category))
+                        }
+                    }
+                } else {
+                    Section(LocalizedStringKey("Results")) {
+                        ForEach(store.searchHelp()) { entry in
+                            NavigationLink(value: entry) {
+                                helpRow(entry)
+                            }
                         }
                     }
                 }
@@ -57,6 +38,44 @@ struct HelpView: View {
             .navigationTitle(LocalizedStringKey("Help"))
             .searchable(text: $store.helpQuery, prompt: Text("Search functions"))
             .navigationDestination(for: HelpEntry.self) { entry in HelpDetailView(entry: store.helpDetail(for: entry)) }
+        }
+    }
+
+    private func categoryCard(_ category: String, count: Int) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: categorySymbol(category))
+                .font(.title3)
+                .foregroundStyle(.tint)
+                .frame(width: 34, height: 34)
+                .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Text(LocalizedStringKey(category))
+                .font(.headline)
+            Spacer()
+            Text("\(count)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func helpRow(_ entry: HelpEntry) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(entry.name).font(.system(.body, design: .monospaced)).bold()
+                if !entry.aliases.isEmpty { Text(entry.aliases.joined(separator: ", ")).font(.caption).foregroundStyle(.tertiary) }
+            }
+            Text(entry.syntax).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
+            Text(entry.description).foregroundStyle(.secondary).lineLimit(2)
+            if let example = entry.examples.first {
+                Button {
+                    fillCalculator(with: example)
+                } label: {
+                    Label(example, systemImage: "play.circle")
+                        .font(.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.borderless)
+            }
         }
     }
 
@@ -105,6 +124,41 @@ struct HelpView: View {
     private func fillCalculator(with expression: String) {
         store.expression = expression
         store.selectedTab = .calculator
+    }
+}
+
+private struct HelpCategoryView: View {
+    let category: String
+    let entries: [HelpEntry]
+    @EnvironmentObject private var store: CalcoraStore
+
+    var body: some View {
+        List {
+            ForEach(entries) { entry in
+                NavigationLink(value: entry) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(entry.name).font(.system(.body, design: .monospaced)).bold()
+                            if !entry.aliases.isEmpty { Text(entry.aliases.joined(separator: ", ")).font(.caption).foregroundStyle(.tertiary) }
+                        }
+                        Text(entry.syntax).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
+                        Text(entry.description).foregroundStyle(.secondary).lineLimit(2)
+                        if let example = entry.examples.first {
+                            Button {
+                                store.expression = example
+                                store.selectedTab = .calculator
+                            } label: {
+                                Label(example, systemImage: "play.circle")
+                                    .font(.caption)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle(LocalizedStringKey(category))
     }
 }
 

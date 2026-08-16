@@ -99,3 +99,11 @@
 "Scripts are stored in the app's private Documents support area." = "Scripts are stored in the app's private Documents support area.";
 "Precision: %d" = "Precision: %d";
 "History limit: %d" = "History limit: %d";
+"Auto" = "Auto";
+"Exact" = "Exact";
+"Approx" = "Approx";
+"Raw Xcas" = "Raw Xcas";
+"Insert equals sign" = "Insert equals sign";
+"Clear previous operand" = "Clear previous operand";
+"Categories" = "Categories";
+"Results" = "Results";
