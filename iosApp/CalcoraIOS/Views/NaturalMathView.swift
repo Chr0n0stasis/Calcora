@@ -207,6 +207,9 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         for run in layout.runs {
             run.draw()
         }
+        for box in layout.boxes {
+            box.draw()
+        }
         for line in layout.lines {
             line.draw()
         }
@@ -332,6 +335,11 @@ private indirect enum MathNode {
     case fraction(MathNode, MathNode, NSRange)
     case script(MathNode, MathNode?, MathNode?, NSRange)
     case delimited(String, MathNode, String, NSRange)
+    case root(MathNode, NSRange)
+    case integral(MathNode?, MathNode?, MathNode, NSRange)
+    case summation(MathNode?, MathNode?, MathNode, NSRange)
+    case derivative(MathNode, MathNode, NSRange)
+    case limit(MathNode, MathNode, NSRange)
 }
 
 // MARK: - Layout primitives
@@ -345,6 +353,16 @@ private struct MathRun {
     func draw() {
         let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
         (string as NSString).draw(at: frame.origin, withAttributes: attributes)
+    }
+}
+
+private struct MathBox {
+    let frame: CGRect
+
+    func draw() {
+        let path = UIBezierPath(roundedRect: frame, cornerRadius: 4)
+        UIColor.secondaryLabel.setFill()
+        path.fill()
     }
 }
 
@@ -373,6 +391,7 @@ private struct MathLayout {
     var width: CGFloat = 0
     var height: CGFloat = 0
     var runs: [MathRun] = []
+    var boxes: [MathBox] = []
     var lines: [MathLine] = []
     var carets: [MathCaret] = []
     static let zero = MathLayout()
@@ -422,6 +441,16 @@ private final class Painter {
             return scriptLayout(base: base, sup: sup, sub: sub, range: range)
         case let .delimited(left, content, right, range):
             return delimitedLayout(left: left, content: content, right: right, range: range)
+        case let .root(content, range):
+            return rootLayout(content: content, range: range)
+        case let .integral(lower, upper, body, range):
+            return integralLayout(lower: lower, upper: upper, body: body, range: range)
+        case let .summation(lower, upper, body, range):
+            return summationLayout(lower: lower, upper: upper, body: body, range: range)
+        case let .derivative(body, variable, range):
+            return derivativeLayout(body: body, variable: variable, range: range)
+        case let .limit(body, lower, range):
+            return limitLayout(body: body, lower: lower, range: range)
         }
     }
 
@@ -430,25 +459,37 @@ private final class Painter {
         let size = fontSize * scale
         let font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
         let color = Self.color(for: value, syntaxHighlighting: syntaxHighlighting)
-        let textSize = (value as NSString).size(withAttributes: [.font: font])
-        layout.width = textSize.width
-        layout.height = max(size, textSize.height)
-        layout.runs.append(MathRun(string: value, font: font, color: color, frame: CGRect(x: 0, y: 0, width: textSize.width, height: textSize.height)))
-
         let ns = value as NSString
+        let boxWidth = max(14, size * 0.7)
+        let boxHeight = max(16, size * 0.72)
+        var x: CGFloat = 0
         var carets: [MathCaret] = []
+        var pending = ""
         let end = range.location + range.length
-        for index in 0...ns.length {
-            let prefix = ns.substring(to: index)
-            let width = (prefix as NSString).size(withAttributes: [.font: font]).width
-            carets.append(MathCaret(offset: range.location + index, x: width, top: 0, bottom: layout.height))
+
+        func flushPending() {
+            guard !pending.isEmpty else { return }
+            let pendingSize = (pending as NSString).size(withAttributes: [.font: font])
+            layout.runs.append(MathRun(string: pending, font: font, color: color, frame: CGRect(x: x, y: 0, width: pendingSize.width, height: pendingSize.height)))
+            x += pendingSize.width
+            pending = ""
         }
-        if carets.isEmpty || carets.first?.offset != range.location {
-            carets.insert(MathCaret(offset: range.location, x: 0, top: 0, bottom: layout.height), at: 0)
+
+        carets.append(MathCaret(offset: range.location, x: 0, top: 0, bottom: max(size, boxHeight)))
+        for index in 0..<ns.length {
+            let char = ns.substring(with: NSRange(location: index, length: 1))
+            if char == "□" {
+                flushPending()
+                layout.boxes.append(MathBox(frame: CGRect(x: x, y: (max(size, boxHeight) - boxHeight) / 2, width: boxWidth, height: boxHeight)))
+                x += boxWidth
+            } else {
+                pending += char
+            }
+            carets.append(MathCaret(offset: range.location + index + 1, x: x, top: 0, bottom: max(size, boxHeight)))
         }
-        if carets.last?.offset != end {
-            carets.append(MathCaret(offset: end, x: layout.width, top: 0, bottom: layout.height))
-        }
+        flushPending()
+        layout.width = x
+        layout.height = max(size, boxHeight)
         layout.carets = carets
         return layout
     }
@@ -565,6 +606,82 @@ private final class Painter {
         return result
     }
 
+    private func rootLayout(content: MathNode, range: NSRange) -> MathLayout {
+        let contentLayout = layoutNode(content, scale: 1)
+        let symbol = "√"
+        let symbolFont = UIFont.systemFont(ofSize: fontSize * 1.25, weight: .regular)
+        let symbolSize = (symbol as NSString).size(withAttributes: [.font: symbolFont])
+        var result = MathLayout()
+        result.width = symbolSize.width + contentLayout.width + 8
+        result.height = max(contentLayout.height + 4, symbolSize.height)
+        result.runs.append(MathRun(string: symbol, font: symbolFont, color: .label, frame: CGRect(x: 0, y: (result.height - symbolSize.height) / 2, width: symbolSize.width, height: symbolSize.height)))
+        let contentX = symbolSize.width + 4
+        let contentY = (result.height - contentLayout.height) / 2
+        result.runs.append(contentsOf: contentLayout.runs.map { run in
+            MathRun(string: run.string, font: run.font, color: run.color, frame: run.frame.offsetBy(dx: contentX, dy: contentY))
+        })
+        result.boxes.append(contentsOf: contentLayout.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: contentX, dy: contentY)) })
+        result.carets.append(MathCaret(offset: range.location, x: 0, top: 0, bottom: result.height))
+        result.carets.append(contentsOf: contentLayout.carets.map { MathCaret(offset: $0.offset, x: $0.x + contentX, top: $0.top + contentY, bottom: $0.bottom + contentY) })
+        result.carets.append(MathCaret(offset: NSMaxRange(range), x: result.width, top: 0, bottom: result.height))
+        result.lines.append(MathLine(frame: CGRect(x: symbolSize.width, y: 0, width: contentLayout.width + 4, height: 2), color: .secondaryLabel))
+        return result
+    }
+
+    private func integralLayout(lower: MathNode?, upper: MathNode?, body: MathNode, range: NSRange) -> MathLayout {
+        let symbol = "∫"
+        let symbolNode = MathNode.text(symbol, range)
+        let symbolLayout = scriptLayout(base: symbolNode, sup: upper, sub: lower, range: range)
+        let bodyLayout = layoutNode(body, scale: 1)
+        return appendRow(symbolLayout, bodyLayout)
+    }
+
+    private func summationLayout(lower: MathNode?, upper: MathNode?, body: MathNode, range: NSRange) -> MathLayout {
+        let symbol = "∑"
+        let symbolNode = MathNode.text(symbol, range)
+        let symbolLayout = scriptLayout(base: symbolNode, sup: upper, sub: lower, range: range)
+        let bodyLayout = layoutNode(body, scale: 1)
+        return appendRow(symbolLayout, bodyLayout)
+    }
+
+    private func derivativeLayout(body: MathNode, variable: MathNode, range: NSRange) -> MathLayout {
+        let numerator = MathNode.text("d", range)
+        let denominator = MathNode.text("d\(variableText(variable))", range)
+        let fraction = fractionLayout(numerator, denominator, range: range)
+        let bodyLayout = layoutNode(body, scale: 1)
+        return appendRow(fraction, bodyLayout)
+    }
+
+    private func limitLayout(body: MathNode, lower: MathNode, range: NSRange) -> MathLayout {
+        let limitSymbol = scriptLayout(base: MathNode.text("lim", range), sup: nil, sub: lower, range: range)
+        let bodyLayout = layoutNode(body, scale: 1)
+        return appendRow(limitSymbol, bodyLayout)
+    }
+
+    private func appendRow(_ left: MathLayout, _ right: MathLayout) -> MathLayout {
+        var result = MathLayout()
+        let gap: CGFloat = 6
+        let maxHeight = max(left.height, right.height)
+        result.width = left.width + gap + right.width
+        result.height = maxHeight
+        let leftY = (maxHeight - left.height) / 2
+        let rightY = (maxHeight - right.height) / 2
+        result.runs.append(contentsOf: left.runs.map { MathRun(string: $0.string, font: $0.font, color: $0.color, frame: $0.frame.offsetBy(dx: 0, dy: leftY)) })
+        result.boxes.append(contentsOf: left.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: 0, dy: leftY)) })
+        result.lines.append(contentsOf: left.lines.map { MathLine(frame: $0.frame.offsetBy(dx: 0, dy: leftY), color: $0.color) })
+        result.carets.append(contentsOf: left.carets.map { MathCaret(offset: $0.offset, x: $0.x, top: $0.top + leftY, bottom: $0.bottom + leftY) })
+        result.runs.append(contentsOf: right.runs.map { MathRun(string: $0.string, font: $0.font, color: $0.color, frame: $0.frame.offsetBy(dx: left.width + gap, dy: rightY)) })
+        result.boxes.append(contentsOf: right.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: left.width + gap, dy: rightY)) })
+        result.lines.append(contentsOf: right.lines.map { MathLine(frame: $0.frame.offsetBy(dx: left.width + gap, dy: rightY), color: $0.color) })
+        result.carets.append(contentsOf: right.carets.map { MathCaret(offset: $0.offset, x: $0.x + left.width + gap, top: $0.top + rightY, bottom: $0.bottom + rightY) })
+        return result
+    }
+
+    private func variableText(_ node: MathNode) -> String {
+        if case let .text(value, _) = node { return value }
+        return "x"
+    }
+
     private static func color(for text: String, syntaxHighlighting: Bool) -> UIColor {
         guard syntaxHighlighting else { return .label }
         if text.rangeOfCharacter(from: CharacterSet.decimalDigits) != nil, text.allSatisfy({ $0.isNumber || $0 == "." || $0 == "," }) {
@@ -583,6 +700,29 @@ private enum MathParser {
     static func parse(_ source: NSString, _ range: NSRange) -> MathNode {
         let full = source.substring(with: range)
         guard !full.isEmpty else { return .text("", range) }
+
+        if let call = parseFunctionCall(source, range, name: "sqrt"), let arg = call.first {
+            return .root(parse(source, arg), range)
+        }
+        if let call = parseFunctionCall(source, range, name: "integrate"), call.count >= 1 {
+            let body = call[0]
+            let lower = call.count >= 3 ? call[2] : nil
+            let upper = call.count >= 4 ? call[3] : nil
+            return .integral(lower.map { parse(source, $0) }, upper.map { parse(source, $0) }, parse(source, body), range)
+        }
+        if let call = parseFunctionCall(source, range, name: "sum"), call.count >= 1 {
+            let body = call[0]
+            let lower = call.count >= 3 ? call[2] : nil
+            let upper = call.count >= 4 ? call[3] : nil
+            return .summation(lower.map { parse(source, $0) }, upper.map { parse(source, $0) }, parse(source, body), range)
+        }
+        if let call = parseFunctionCall(source, range, name: "diff"), call.count >= 2 {
+            return .derivative(parse(source, call[0]), parse(source, call[1]), range)
+        }
+        if let call = parseFunctionCall(source, range, name: "limit"), call.count >= 1 {
+            let lower = call.count >= 2 ? call[1] : call[0]
+            return .limit(parse(source, call[0]), parse(source, lower), range)
+        }
 
         if let fraction = topLevelOperator(source, range, operator: "/") {
             return .fraction(parse(source, fraction.left), parse(source, fraction.right), range)
@@ -630,5 +770,39 @@ private enum MathParser {
             }
         }
         return nil
+    }
+
+    private static func parseFunctionCall(_ source: NSString, _ range: NSRange, name: String) -> [NSRange]? {
+        guard range.length >= name.count,
+              source.substring(with: NSRange(location: range.location, length: name.count)) == name else { return nil }
+        let open = range.location + name.count
+        guard open < NSMaxRange(range), source.character(at: open) == 40 else { return nil }
+        guard let close = matchingDelimiter(source, open: open), close == NSMaxRange(range) - 1 else { return nil }
+        let inner = NSRange(location: open + 1, length: max(0, close - open - 1))
+        return splitArguments(source, inner)
+    }
+
+    private static func splitArguments(_ source: NSString, _ range: NSRange) -> [NSRange] {
+        var result: [NSRange] = []
+        var start = range.location
+        var depth = 0
+        guard range.length > 0 else { return result }
+        for index in range.location..<NSMaxRange(range) {
+            let char = source.substring(with: NSRange(location: index, length: 1))
+            if char == "(" || char == "[" || char == "{" { depth += 1 }
+            if char == ")" || char == "]" || char == "}" { depth -= 1 }
+            if char == "," && depth == 0 {
+                let arg = NSRange(location: start, length: index - start)
+                if arg.length > 0 || start < index {
+                    result.append(arg)
+                }
+                start = index + 1
+            }
+        }
+        let last = NSRange(location: start, length: NSMaxRange(range) - start)
+        if last.length > 0 {
+            result.append(last)
+        }
+        return result
     }
 }

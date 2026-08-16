@@ -7,7 +7,6 @@ struct CalculatorView: View {
     @State private var showingTerminal = false
     @State private var showingScript = false
     @State private var showingPlot = false
-    @State private var showingNaturalMath = false
     @State private var showingResultDetails = false
     @State private var showingHistory = false
     @State private var showingDebug = false
@@ -51,18 +50,6 @@ struct CalculatorView: View {
             VStack(spacing: 0) {
                 // Expression and Result Area
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Spacer()
-                        Picker("Mode", selection: $store.selectedMode) {
-                            ForEach(EvalMode.allCases) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .contentShape(Rectangle())
-                    .onTapGesture { dismissKeyboard() }
-                    
                     if showingDebug {
                         Text("debug: \(ExpressionFormatter.toEngineInput(store.expression))")
                             .font(.system(.caption, design: .monospaced))
@@ -190,16 +177,38 @@ struct CalculatorView: View {
                 .frame(maxHeight: 360)
             }
             .ignoresSafeArea(.keyboard, edges: .bottom)
-            .navigationTitle(LocalizedStringKey("Calcora"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Button { dismissKeyboard() } label: {
+                        Text(LocalizedStringKey("Calcora"))
+                            .font(.headline)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Dismiss keyboard")
+                }
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button { showingDebug.toggle() } label: { Image(systemName: "chevron.left.forwardslash.chevron.right") }
                         .accessibilityLabel("Debug input")
                     Button { showingHistory = true } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel(LocalizedStringKey("History"))
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button { showingNaturalMath = true } label: { Image(systemName: "f.cursive") }.accessibilityLabel(LocalizedStringKey("Natural Math"))
+                    Menu {
+                        ForEach(EvalMode.allCases) { mode in
+                            Button {
+                                store.selectedMode = mode
+                            } label: {
+                                if store.selectedMode == mode {
+                                    Label(LocalizedStringKey(mode.rawValue), systemImage: "checkmark")
+                                } else {
+                                    Text(LocalizedStringKey(mode.rawValue))
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                    }
+                    .accessibilityLabel(LocalizedStringKey("Mode"))
                     Button { showingTerminal = true } label: { Image(systemName: "terminal") }.accessibilityLabel(LocalizedStringKey("CAS Terminal"))
                     Button { showingScript = true } label: { Image(systemName: "doc.text") }.accessibilityLabel(LocalizedStringKey("Script Editor"))
                 }
@@ -211,7 +220,6 @@ struct CalculatorView: View {
             }
             .sheet(isPresented: $showingTerminal) { TerminalView() }
             .sheet(isPresented: $showingScript) { ScriptView() }
-            .sheet(isPresented: $showingNaturalMath) { NaturalMathEditorView(initialText: store.expression).environmentObject(store) }
             .sheet(isPresented: $showingResultDetails) { if let result = store.result { ResultDetailView(result: result) } }
             .sheet(isPresented: $showingPlot) {
                 if let result = store.result {
@@ -262,6 +270,8 @@ struct CalculatorView: View {
         switch key {
         case "AC":
             store.expression = ""
+            store.result = nil
+            showingPlot = false
             selectedRange = NSRange(location: 0, length: 0)
         case "⌫":
             backspace()
