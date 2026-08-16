@@ -34,6 +34,14 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Set up Xcode derived data cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-xcode-deriveddata-${{ hashFiles('giac-2.0.0/**', 'app/src/main/cpp/**', 'iosApp/**/*.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-xcode-deriveddata-
+
       - name: Prepare Apple build tools
         shell: bash
         run: |

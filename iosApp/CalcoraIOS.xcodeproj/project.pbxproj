@@ -185,7 +185,7 @@
 			outputPaths = ("$(BUILT_PRODUCTS_DIR)/libcalcora.a");
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n\ncase \"${SDK_NAME:-}\" in\n  iphoneos*) native_target=iosArm64 ;;\n  iphonesimulator*)\n    case \"${CURRENT_ARCH:-${NATIVE_ARCH_ACTUAL:-}}\" in\n      arm64) native_target=iosSimulatorArm64 ;;\n      x86_64) native_target=iosX64 ;;\n      *) echo \"Unsupported simulator architecture: ${CURRENT_ARCH:-unknown}\" >&2; exit 2 ;;\n    esac\n    ;;\n  *) echo \"Unsupported Apple SDK: ${SDK_NAME:-unknown}\" >&2; exit 2 ;;\nesac\n\noutput=\"$TARGET_TEMP_DIR/calcora-native\"\nrm -rf \"$output\"\nmkdir -p \"$output\"\n./iosApp/native/build-native.sh \"$native_target\" \"$output\"\ncp -f \"$output/libcalcora.a\" \"$BUILT_PRODUCTS_DIR/libcalcora.a\"\n";
+			shellScript = "cd \"$SRCROOT/..\"\n\ncase \"${SDK_NAME:-}\" in\n  iphoneos*) native_target=iosArm64 ;;\n  iphonesimulator*)\n    arch=\"${CURRENT_ARCH:-undefined_arch}\"\n    if [ \"$arch\" = \"undefined_arch\" ] || [ -z \"$arch\" ]; then\n      arch=\"${ARCHS%% *}\"\n    fi\n    if [ \"$arch\" = \"undefined_arch\" ] || [ -z \"$arch\" ]; then\n      if [ \"${NATIVE_ARCH_ACTUAL}\" != \"\" ]; then\n        arch=\"${NATIVE_ARCH_ACTUAL}\"\n      else\n        arch=\"$(uname -m)\"\n      fi\n    fi\n    case \"$arch\" in\n      arm64) native_target=iosSimulatorArm64 ;;\n      x86_64) native_target=iosX64 ;;\n      *) echo \\\"Unsupported simulator architecture: $arch\\\" >&2; exit 2 ;;\n    esac\n    ;;\n  *) echo \"Unsupported Apple SDK: ${SDK_NAME:-unknown}\" >&2; exit 2 ;;\nesac\n\noutput=\"$TARGET_TEMP_DIR/calcora-native\"\nrm -rf \"$output\"\nmkdir -p \"$output\"\n./iosApp/native/build-native.sh \"$native_target\" \"$output\"\ncp -f \"$output/libcalcora.a\" \"$BUILT_PRODUCTS_DIR/libcalcora.a\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -316,3 +316,4 @@
 	};
 	rootObject = 100000000000000000000050 /* Project object */;
 }
+
