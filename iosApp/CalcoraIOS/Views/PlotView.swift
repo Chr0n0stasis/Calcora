@@ -20,7 +20,7 @@ struct PlotView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "chart.xyaxis.line").font(.largeTitle).foregroundColor(.secondary)
                         Text(LocalizedStringKey("No plot data")).font(.headline)
-                        Text("Evaluate a plot expression first.").font(.subheadline).foregroundColor(.secondary)
+                        Text(LocalizedStringKey("Evaluate a plot expression first.")).font(.subheadline).foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {

@@ -126,4 +126,9 @@ struct HelpDetailView: View {
             }
         }
     }
+
+    private func fillCalculator(with expression: String) {
+        store.expression = expression
+        store.selectedTab = .calculator
+    }
 }

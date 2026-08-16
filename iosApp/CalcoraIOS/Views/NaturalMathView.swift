@@ -84,7 +84,7 @@ struct NaturalMathEditorView: View {
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(.secondary.opacity(0.25)))
                 .padding(.horizontal)
 
-                Text("Insert a structured template. Gray squares are editable placeholders.")
+                Text(LocalizedStringKey("Insert a structured template. Gray squares are editable placeholders."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -114,11 +114,11 @@ struct NaturalMathEditorView: View {
                 Spacer(minLength: 0)
             }
             .padding(.top)
-            .navigationTitle("Natural Math")
+            .navigationTitle(LocalizedStringKey("Natural Math"))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(LocalizedStringKey("Cancel")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Use") { store.expression = text; dismiss() }
+                    Button(LocalizedStringKey("Use")) { store.expression = text; dismiss() }
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

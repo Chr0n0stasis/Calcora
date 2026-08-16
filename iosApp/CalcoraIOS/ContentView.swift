@@ -9,7 +9,7 @@ struct ContentView: View {
             if horizontalSizeClass == .regular {
                 NavigationSplitView {
                     List(selection: Binding(get: { store.selectedTab }, set: { if let v = $0 { store.selectedTab = v } })) { ForEach(AppTab.allCases) { tab in Label(LocalizedStringKey(tab.title), systemImage: tab.symbol).tag(tab) } }
-                    .navigationTitle("Calcora")
+                    .navigationTitle(LocalizedStringKey("Calcora"))
                     .listStyle(.sidebar)
                 } detail: {
                     selectedView

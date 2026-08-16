@@ -89,3 +89,11 @@
 "Integral" = "Integral";
 "Derivative" = "Derivative";
 "Sum" = "Sum";
+"Debug expression" = "Debug expression";
+"Evaluate a plot expression first." = "Evaluate a plot expression first.";
+"Enter raw Xcas/Giac commands below." = "Enter raw Xcas/Giac commands below.";
+"Copied %@" = "Copied %@";
+"Copy %@" = "Copy %@";
+"Syntax highlighting is applied to native text fields and may be disabled for accessibility or performance." = "Syntax highlighting is applied to native text fields and may be disabled for accessibility or performance.";
+"Calcora uses the native Giac engine and is designed for touch, keyboard, Dynamic Type, and iPad multitasking." = "Calcora uses the native Giac engine and is designed for touch, keyboard, Dynamic Type, and iPad multitasking.";
+"Scripts are stored in the app's private Documents support area." = "Scripts are stored in the app's private Documents support area.";

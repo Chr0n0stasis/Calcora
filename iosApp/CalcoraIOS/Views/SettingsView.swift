@@ -19,7 +19,7 @@ struct SettingsView: View {
                 Section(LocalizedStringKey("Editor")) {
                     Toggle("Autocomplete", isOn: $store.settings.autocompleteEnabled)
                     Toggle("Syntax highlighting", isOn: $store.settings.syntaxHighlighting)
-                    Text("Syntax highlighting is applied to native text fields and may be disabled for accessibility or performance.")
+                    Text(LocalizedStringKey("Syntax highlighting is applied to native text fields and may be disabled for accessibility or performance."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section(LocalizedStringKey("Actions")) {
@@ -30,7 +30,7 @@ struct SettingsView: View {
                 Section(LocalizedStringKey("About")) {
                     LabeledContent(LocalizedStringKey("Native engine"), value: CalcoraEngine.shared.version())
                     LabeledContent(LocalizedStringKey("Interface"), value: "SwiftUI · iOS/iPadOS")
-                    Text("Calcora uses the native Giac engine and is designed for touch, keyboard, Dynamic Type, and iPad multitasking.")
+                    Text(LocalizedStringKey("Calcora uses the native Giac engine and is designed for touch, keyboard, Dynamic Type, and iPad multitasking."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

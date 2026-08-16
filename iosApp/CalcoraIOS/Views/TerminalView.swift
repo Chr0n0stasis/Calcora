@@ -11,7 +11,7 @@ struct TerminalView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
                         if store.terminalLines.isEmpty {
-                            Text("Enter raw Xcas/Giac commands below.").foregroundStyle(.secondary)
+                            Text(LocalizedStringKey("Enter raw Xcas/Giac commands below.")).foregroundStyle(.secondary)
                         }
                         ForEach(Array(store.terminalLines.enumerated()), id: \.offset) { _, line in
                             Text(line).font(.system(.body, design: .monospaced)).frame(maxWidth: .infinity, alignment: .leading)

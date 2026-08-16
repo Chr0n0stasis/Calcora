@@ -51,13 +51,16 @@ struct CalculatorView: View {
                 // Expression and Result Area
                 VStack(alignment: .leading, spacing: 0) {
                     if showingDebug {
-                        Text("debug: \(ExpressionFormatter.toEngineInput(store.expression))")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                            .padding(.horizontal)
-                            .padding(.bottom, 8)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        HStack(spacing: 6) {
+                            Text(LocalizedStringKey("Debug expression"))
+                            Text(ExpressionFormatter.toEngineInput(store.expression))
+                                .textSelection(.enabled)
+                        }
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
                     if store.settings.autocompleteEnabled, !store.autocompleteSuggestions.isEmpty {

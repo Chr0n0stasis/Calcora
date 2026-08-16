@@ -46,7 +46,7 @@ struct ScriptView: View {
                 TextField(LocalizedStringKey("Script name"), text: $saveName)
                 Button(LocalizedStringKey("Save")) { doSave() }
                 Button(LocalizedStringKey("Cancel"), role: .cancel) {}
-            } message: { Text("Scripts are stored in the app's private Documents support area.") }
+            } message: { Text(LocalizedStringKey("Scripts are stored in the app's private Documents support area.")) }
             .alert(LocalizedStringKey("Script Error"), isPresented: Binding(get: { !errorMessage.isEmpty }, set: { if !$0 { errorMessage = "" } })) { Button(LocalizedStringKey("OK")) {} } message: { Text(errorMessage) }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.plainText, .text, UTType(exportedAs: "com.example.calcora.xcas")], allowsMultipleSelection: false) { result in
                 if case .success(let urls) = result, let url = urls.first { do { try store.importScript(from: url) } catch { errorMessage = error.localizedDescription } }
