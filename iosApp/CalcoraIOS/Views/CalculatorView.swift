@@ -16,7 +16,7 @@ struct CalculatorView: View {
         case none, vars, funcs, cas
     }
 
-    private let functionButtons = ["sin(", "cos(", "tan(", "sqrt(", "log(", "ln(", "exp(", "abs(", "floor(", "ceil("]
+    private let functionButtons = ["sin(", "cos(", "tan(", "asin(", "acos(", "atan(", "sqrt(", "log(", "ln(", "exp(", "abs(", "floor(", "ceil(", "^", "plot(", "plot3d("]
     private let casButtons = ["solve(", "factor(", "expand(", "diff(", "integrate(", "limit(", "sum(", "det(", "simplify(", "help("]
     private let variableButtons = ["x", "y", "z", "t", "n", "ans", "π", "e"]
     
@@ -43,6 +43,8 @@ struct CalculatorView: View {
                     }
                     .padding(.horizontal)
                     .padding(.top, 8)
+                    .contentShape(Rectangle())
+                    .onTapGesture { dismissKeyboard() }
                     
                     ExpressionTextView(text: $store.expression, selectedRange: $selectedRange)
                         .frame(maxHeight: .infinity)
@@ -57,17 +59,43 @@ struct CalculatorView: View {
                                     .foregroundStyle(result.isError ? .red : .primary)
                                     .textSelection(.enabled)
                             }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                dismissKeyboard()
+                                showingResultDetails = true
+                            }
                             if let secondary = result.secondary {
                                 Text(secondary).font(.system(.body, design: .monospaced)).foregroundStyle(.secondary).textSelection(.enabled)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        dismissKeyboard()
+                                        showingResultDetails = true
+                                    }
                             }
                         }
                         .padding(.horizontal)
                         .padding(.bottom, 12)
-                        .contentShape(Rectangle())
-                        .onTapGesture { showingResultDetails = true }
+
+                        if result.isPlot {
+                            Button {
+                                dismissKeyboard()
+                                showingPlot = true
+                            } label: {
+                                Label(LocalizedStringKey("View plot"), systemImage: "chart.xyaxis.line")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            .padding(.horizontal)
+                            .padding(.bottom, 12)
+                        }
                     }
                 }
-                .background(Color(uiColor: .secondarySystemBackground))
+                .frame(maxHeight: .infinity, alignment: .top)
+                .background {
+                    Color(uiColor: .secondarySystemBackground)
+                        .contentShape(Rectangle())
+                        .onTapGesture { dismissKeyboard() }
+                }
                 
                 Divider()
                 
@@ -107,6 +135,7 @@ struct CalculatorView: View {
                 }
                 .padding()
                 .background(Color(uiColor: .systemBackground))
+                .frame(maxHeight: 360)
             }
             .navigationTitle(LocalizedStringKey("Calcora"))
             .navigationBarTitleDisplayMode(.inline)
@@ -120,11 +149,26 @@ struct CalculatorView: View {
                     Button { showingScript = true } label: { Image(systemName: "doc.text") }.accessibilityLabel(LocalizedStringKey("Script Editor"))
                 }
             }
-            .sheet(isPresented: $showingHistory) { HistoryView() }
+            .sheet(isPresented: $showingHistory) {
+                HistoryView()
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
             .sheet(isPresented: $showingTerminal) { TerminalView() }
             .sheet(isPresented: $showingScript) { ScriptView() }
             .sheet(isPresented: $showingNaturalMath) { NaturalMathEditorView(initialText: store.expression).environmentObject(store) }
             .sheet(isPresented: $showingResultDetails) { if let result = store.result { ResultDetailView(result: result) } }
+            .sheet(isPresented: $showingPlot) {
+                if let result = store.result {
+                    PlotView(items: store.plotItems())
+                        .environmentObject(store)
+                }
+            }
+            .onChange(of: store.result?.id) { _ in
+                if store.result?.isPlot == true {
+                    showingPlot = true
+                }
+            }
             // If there's plot data, maybe a separate launch logic, omitted here or we use a toolbar button if result.isPlot
         }
     }
@@ -153,6 +197,7 @@ struct CalculatorView: View {
         }
         .buttonStyle(.bordered)
         .tint(keyColor(for: key))
+        .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 62)
     }
     
     private func keyColor(for key: String) -> Color {
@@ -195,5 +240,9 @@ struct CalculatorView: View {
         guard range.length > 0, let stringRange = Range(range, in: store.expression) else { return }
         store.expression.removeSubrange(stringRange)
         selectedRange = NSRange(location: range.location, length: 0)
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

@@ -25,6 +25,12 @@ struct ExpressionTextView: UIViewRepresentable {
         view.smartDashesType = .no
         view.smartInsertDeleteType = .no
         view.returnKeyType = .done
+        let toolbar = UIToolbar(frame: CGRect(x: 0, y: 0, width: 0, height: 44))
+        toolbar.items = [
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            UIBarButtonItem(barButtonSystemItem: .done, target: view, action: #selector(UIResponder.resignFirstResponder))
+        ]
+        view.inputAccessoryView = toolbar
         view.text = text
         return view
     }
