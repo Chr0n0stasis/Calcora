@@ -73,6 +73,20 @@ struct CalculatorView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
+                    if store.settings.autocompleteEnabled, !store.autocompleteSuggestions.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(store.autocompleteSuggestions, id: \.self) { suggestion in
+                                    Button(suggestion) { applyAutocomplete(suggestion) }
+                                        .font(.system(.caption, design: .monospaced))
+                                        .buttonStyle(.bordered)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .padding(.bottom, 8)
+                    }
+
                     NaturalMathInputView(
                         text: $store.expression,
                         selectedRange: $selectedRange,
@@ -175,6 +189,7 @@ struct CalculatorView: View {
                 .background(Color(uiColor: .systemBackground))
                 .frame(maxHeight: 360)
             }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .navigationTitle(LocalizedStringKey("Calcora"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -289,6 +304,28 @@ struct CalculatorView: View {
             store.expression.replaceSubrange(stringRange, with: "()")
             selectedRange = NSRange(location: range.location + 1, length: 0)
         }
+    }
+
+    private func currentWordRange() -> NSRange? {
+        let ns = store.expression as NSString
+        let cursor = min(selectedRange?.location ?? ns.length, ns.length)
+        var start = cursor
+        while start > 0 {
+            let unit = ns.character(at: start - 1)
+            let isWord = (unit >= 48 && unit <= 57) || (unit >= 65 && unit <= 90) || (unit >= 97 && unit <= 122) || unit == 95
+            guard isWord else { break }
+            start -= 1
+        }
+        guard start < cursor else { return nil }
+        return NSRange(location: start, length: cursor - start)
+    }
+
+    private func applyAutocomplete(_ suggestion: String) {
+        let ns = store.expression as NSString
+        let range = currentWordRange() ?? NSRange(location: ns.length, length: 0)
+        guard let swiftRange = Range(range, in: store.expression) else { return }
+        store.expression.replaceSubrange(swiftRange, with: suggestion)
+        selectedRange = NSRange(location: range.location + (suggestion as NSString).length, length: 0)
     }
 
     private func backspace() {

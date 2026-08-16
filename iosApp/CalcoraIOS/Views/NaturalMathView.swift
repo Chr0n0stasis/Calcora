@@ -326,7 +326,7 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
 
 // MARK: - Math node model
 
-private enum MathNode {
+private indirect enum MathNode {
     case text(String, NSRange)
     case row([MathNode], NSRange)
     case fraction(MathNode, MathNode, NSRange)

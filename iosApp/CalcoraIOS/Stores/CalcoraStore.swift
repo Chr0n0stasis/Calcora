@@ -49,9 +49,12 @@ final class CalcoraStore: ObservableObject {
 
     var autocompleteSuggestions: [String] {
         guard settings.autocompleteEnabled else { return [] }
-        let query = expression.split(whereSeparator: { $0 == " " || $0 == "(" || $0 == "," }).last.map(String.init) ?? ""
-        let source = query.isEmpty ? ["sin", "cos", "tan", "sqrt", "log", "ln", "plot"] : helpEntries.map(\.name)
-        return source.filter { query.isEmpty || $0.localizedCaseInsensitiveContains(query) }.prefix(8).map { $0 }
+        let trimmed = expression.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        let query = trimmed.split(whereSeparator: { $0 == " " || $0 == "(" || $0 == "," || $0 == ";" }).last.map(String.init) ?? ""
+        guard !query.isEmpty else { return [] }
+        let source = helpEntries.map(\.name)
+        return source.filter { $0.localizedCaseInsensitiveContains(query) }.prefix(8).map { $0 }
     }
 
     func evaluate() {
