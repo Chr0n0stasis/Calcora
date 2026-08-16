@@ -16,6 +16,7 @@ struct ExpressionTextView: UIViewRepresentable {
         view.delegate = context.coordinator
         view.font = font
         view.backgroundColor = .clear
+        view.textColor = .label
         view.isEditable = isEditable
         view.isScrollEnabled = true
         view.alwaysBounceVertical = false

@@ -62,7 +62,7 @@ struct ScriptView: View {
             ExpressionTextView(text: $store.scriptText, selectedRange: .constant(nil), font: .monospacedSystemFont(ofSize: 16, weight: .regular))
                 .frame(minHeight: 220)
                 .padding(8)
-                .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             HStack {
                 Button { store.runScript() } label: { Label(LocalizedStringKey("Run"), systemImage: "play.fill") }.buttonStyle(.borderedProminent)
                 Button(LocalizedStringKey("Clear output")) { store.clearScriptOutput() }.buttonStyle(.bordered)

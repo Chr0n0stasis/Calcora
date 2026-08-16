@@ -42,7 +42,7 @@ struct CalculatorView: View {
         ["7", "8", "9", "×"],
         ["4", "5", "6", "−"],
         ["1", "2", "3", "+"],
-        ["0", ".", "^", "="]
+        ["0", ".", "=", "EXE"]
     ]
 
     var body: some View {
@@ -129,12 +129,12 @@ struct CalculatorView: View {
                         }
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
                 .frame(maxHeight: .infinity, alignment: .top)
-                .background {
-                    Color(uiColor: .secondarySystemBackground)
-                        .contentShape(Rectangle())
-                        .onTapGesture { dismissKeyboard() }
-                }
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .onTapGesture { dismissKeyboard() }
                 
                 Divider()
                 
@@ -172,8 +172,10 @@ struct CalculatorView: View {
                         }
                     }
                 }
-                .padding()
-                .background(Color(uiColor: .systemBackground))
+                .padding(12)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
                 .frame(maxHeight: 360)
             }
             .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -241,6 +243,7 @@ struct CalculatorView: View {
                 .padding(.vertical, 8)
         }
         .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.roundedRectangle(radius: 14))
         .tint(activeTab == tab ? .accentColor : .secondary.opacity(0.2))
         .foregroundStyle(activeTab == tab ? .white : .primary)
     }
@@ -255,6 +258,7 @@ struct CalculatorView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .buttonStyle(.bordered)
+        .buttonBorderShape(.roundedRectangle(radius: 14))
         .tint(keyColor(for: key))
         .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 62)
     }
@@ -262,7 +266,7 @@ struct CalculatorView: View {
     private func keyColor(for key: String) -> Color {
         switch key {
         case "AC", "⌫": return .red
-        case "=", "()", "^", "÷", "×", "−", "+": return .accentColor
+        case "=", "EXE", "()", "^", "÷", "×", "−", "+": return .accentColor
         default: return Color(uiColor: .tertiarySystemFill)
         }
     }
@@ -279,6 +283,8 @@ struct CalculatorView: View {
         case "()":
             insertSmartParentheses()
         case "=":
+            insert("=")
+        case "EXE":
             store.evaluate()
         case "÷": insert("/")
         case "×": insert("*")
