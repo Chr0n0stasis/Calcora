@@ -81,7 +81,10 @@ struct CalculatorView: View {
                         text: $store.expression,
                         selectedRange: $selectedRange,
                         fontSize: 28,
-                        onCommit: { store.evaluate() }
+                        onCommit: { effectiveExpression in
+                            store.expression = effectiveExpression
+                            store.evaluate()
+                        }
                     )
                         .frame(maxHeight: .infinity)
                         .accessibilityLabel(LocalizedStringKey("Expression input"))
@@ -181,6 +184,7 @@ struct CalculatorView: View {
                 .padding(.bottom, 12)
                 .frame(maxHeight: 360)
             }
+            .background(.ultraThinMaterial)
             .ignoresSafeArea(.keyboard, edges: .bottom)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -258,19 +262,45 @@ struct CalculatorView: View {
         } label: {
             Text(key)
                 .font(.system(.title2))
+                .foregroundStyle(keyForeground(for: key))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.roundedRectangle(radius: 14))
-        .tint(keyColor(for: key))
+        .buttonStyle(.plain)
+        .background(keyBackground(for: key), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(.primary.opacity(keyRole(for: key) == .number ? 0.08 : 0.16), lineWidth: 1))
+        .shadow(color: .black.opacity(keyRole(for: key) == .execute ? 0.22 : 0.08), radius: keyRole(for: key) == .execute ? 7 : 3, y: keyRole(for: key) == .execute ? 4 : 2)
         .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 62)
     }
-    
-    private func keyColor(for key: String) -> Color {
+
+    private enum KeyRole { case number, clear, backspace, mathOperator, equals, execute }
+
+    private func keyRole(for key: String) -> KeyRole {
         switch key {
-        case "AC", "⌫": return .red
-        case "=", "EXE", "()", "^", "÷", "×", "−", "+": return .accentColor
-        default: return Color(uiColor: .secondarySystemGroupedBackground)
+        case "AC": return .clear
+        case "⌫": return .backspace
+        case "EXE": return .execute
+        case "=": return .equals
+        case "()", "^", "÷", "×", "−", "+": return .mathOperator
+        default: return .number
+        }
+    }
+
+    private func keyBackground(for key: String) -> Color {
+        switch key {
+        case "AC": return .red.opacity(0.18)
+        case "⌫": return Color(uiColor: .secondarySystemGroupedBackground)
+        case "EXE", "=": return .accentColor
+        case "()", "^", "÷", "×", "−", "+": return Color.accentColor.opacity(0.16)
+        default: return Color(uiColor: .secondarySystemGroupedBackground).opacity(0.92)
+        }
+    }
+
+    private func keyForeground(for key: String) -> Color {
+        switch keyRole(for: key) {
+        case .clear: return .red
+        case .execute, .equals: return .white
+        case .mathOperator: return .accentColor
+        case .number, .backspace: return .primary
         }
     }
 

@@ -16,7 +16,7 @@ struct HelpView: View {
                 let grouped = Dictionary(grouping: store.searchHelp(), by: category(for:))
                 ForEach(categoryOrder, id: \.self) { category in
                     if let entries = grouped[category], !entries.isEmpty {
-                        Section(LocalizedStringKey(category)) {
+                        Section {
                             ForEach(entries) { entry in
                                 HStack {
                                     NavigationLink(value: entry) {
@@ -48,6 +48,8 @@ struct HelpView: View {
                                     .accessibilityLabel("Insert \(entry.name)")
                                 }
                             }
+                        } header: {
+                            Label(LocalizedStringKey(category), systemImage: categorySymbol(category))
                         }
                     }
                 }
@@ -59,6 +61,19 @@ struct HelpView: View {
     }
 
     private let categoryOrder = ["Trigonometry", "Calculus", "Algebra", "Linear Algebra", "Plotting", "Number Theory", "Programming", "Other"]
+
+    private func categorySymbol(_ category: String) -> String {
+        switch category {
+        case "Trigonometry": return "angle"
+        case "Calculus": return "function"
+        case "Algebra": return "x.squareroot"
+        case "Linear Algebra": return "square.grid.3x3"
+        case "Plotting": return "chart.xyaxis.line"
+        case "Number Theory": return "number"
+        case "Programming": return "chevron.left.forwardslash.chevron.right"
+        default: return "ellipsis.circle"
+        }
+    }
 
     private func category(for entry: HelpEntry) -> String {
         let name = entry.name.lowercased()

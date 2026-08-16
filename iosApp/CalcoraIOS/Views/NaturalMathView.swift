@@ -9,7 +9,7 @@ struct NaturalMathInputView: UIViewRepresentable {
     @Binding var selectedRange: NSRange?
     var fontSize: CGFloat = 26
     var syntaxHighlighting: Bool = true
-    var onCommit: (() -> Void)? = nil
+    var onCommit: ((String) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -43,7 +43,7 @@ struct NaturalMathInputView: UIViewRepresentable {
             parent.selectedRange = view.selectedRange
         }
         func naturalMathDrawingViewDidCommit(_ view: NaturalMathDrawingView) {
-            parent.onCommit?()
+            parent.onCommit?(view.effectiveText)
         }
     }
 }
@@ -76,7 +76,7 @@ struct NaturalMathEditorView: View {
                     text: $text,
                     selectedRange: $selectedRange,
                     fontSize: 27,
-                    onCommit: { store.expression = text; dismiss() }
+                    onCommit: { store.expression = $0; dismiss() }
                 )
                 .frame(minHeight: 150, maxHeight: 260)
                 .padding(4)
@@ -160,6 +160,8 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
             isUpdatingTextView = true
             hiddenTextView.text = text
             isUpdatingTextView = false
+            slotValues.removeAll()
+            activeSlot = nil
             setNeedsLayout()
             setNeedsDisplay()
         }
@@ -188,6 +190,18 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
     private var layout = MathLayout.zero
     private var slots: [MathSlot] = []
     private var activeSlot: MathSlot?
+    private var slotValues: [Int: String] = [:]
+
+    var effectiveText: String {
+        guard !slotValues.isEmpty else { return text }
+        var result = text
+        for slot in slots.sorted(by: { $0.range.location > $1.range.location }) {
+            if let value = slotValues[slot.id], let swiftRange = Range(slot.range, in: result) {
+                result.replaceSubrange(swiftRange, with: value)
+            }
+        }
+        return result
+    }
 
     init(text: String = "", selectedRange: NSRange = NSRange(location: 0, length: 0)) {
         self.text = text
@@ -284,6 +298,7 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
     private func rebuildLayout() {
         layout = MathTypesetter.layout(
             source: text,
+            slotValues: slotValues,
             fontSize: fontSize,
             syntaxHighlighting: syntaxHighlighting
         )
@@ -369,19 +384,23 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
             return false
         }
         if let activeSlot {
-            if replacement.isEmpty {
-                if range == activeSlot.range {
-                    self.activeSlot = nil
-                } else if NSIntersectionRange(range, activeSlot.range).length > 0 {
-                    let newLength = max(0, activeSlot.range.length - range.length)
-                    self.activeSlot = MathSlot(id: activeSlot.id, range: NSRange(location: activeSlot.range.location, length: newLength))
+            if NSLocationInRange(range.location, activeSlot.range) || range == activeSlot.range {
+                if replacement.isEmpty {
+                    var value = slotValues[activeSlot.id] ?? ""
+                    if value.isEmpty {
+                        self.activeSlot = nil
+                        return true
+                    }
+                    value.removeLast()
+                    slotValues[activeSlot.id] = value
+                } else {
+                    slotValues[activeSlot.id, default: ""] += replacement
                 }
-            } else if range.location >= activeSlot.range.location && range.location <= NSMaxRange(activeSlot.range) {
-                let newLength = activeSlot.range.length - range.length + replacement.utf16.count
-                self.activeSlot = MathSlot(id: activeSlot.id, range: NSRange(location: activeSlot.range.location, length: newLength))
-            } else {
-                self.activeSlot = nil
+                selectedRange = NSRange(location: activeSlot.range.location, length: 1)
+                rebuildLayout()
+                return false
             }
+            self.activeSlot = nil
         }
         return true
     }
@@ -462,7 +481,7 @@ private struct MathLayout {
 // MARK: - Simplified typesetter
 
 private enum MathTypesetter {
-    static func layout(source: String, fontSize: CGFloat, syntaxHighlighting: Bool) -> MathLayout {
+    static func layout(source: String, slotValues: [Int: String], fontSize: CGFloat, syntaxHighlighting: Bool) -> MathLayout {
         guard !source.isEmpty else {
             var empty = MathLayout()
             empty.height = fontSize
@@ -471,7 +490,7 @@ private enum MathTypesetter {
         }
         let ns = source as NSString
         let node = MathParser.parse(ns, NSRange(location: 0, length: ns.length))
-        let painter = Painter(fontSize: fontSize, syntaxHighlighting: syntaxHighlighting)
+        let painter = Painter(fontSize: fontSize, syntaxHighlighting: syntaxHighlighting, slotValues: slotValues)
         return painter.layout(node)
     }
 }
@@ -479,10 +498,12 @@ private enum MathTypesetter {
 private final class Painter {
     let fontSize: CGFloat
     let syntaxHighlighting: Bool
+    let slotValues: [Int: String]
 
-    init(fontSize: CGFloat, syntaxHighlighting: Bool) {
+    init(fontSize: CGFloat, syntaxHighlighting: Bool, slotValues: [Int: String]) {
         self.fontSize = fontSize
         self.syntaxHighlighting = syntaxHighlighting
+        self.slotValues = slotValues
     }
 
     func layout(_ node: MathNode) -> MathLayout {
@@ -522,36 +543,46 @@ private final class Painter {
         let font = UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
         let color = Self.color(for: value, syntaxHighlighting: syntaxHighlighting)
         let ns = value as NSString
-        let boxWidth = max(14, size * 0.7)
-        let boxHeight = max(16, size * 0.72)
         var x: CGFloat = 0
         var carets: [MathCaret] = []
         var pending = ""
-        let end = range.location + range.length
+        var lineHeight = max(size, 16)
 
         func flushPending() {
             guard !pending.isEmpty else { return }
             let pendingSize = (pending as NSString).size(withAttributes: [.font: font])
             layout.runs.append(MathRun(string: pending, font: font, color: color, frame: CGRect(x: x, y: 0, width: pendingSize.width, height: pendingSize.height)))
             x += pendingSize.width
+            lineHeight = max(lineHeight, pendingSize.height)
             pending = ""
         }
 
-        carets.append(MathCaret(offset: range.location, x: 0, top: 0, bottom: max(size, boxHeight)))
+        carets.append(MathCaret(offset: range.location, x: 0, top: 0, bottom: lineHeight))
         for index in 0..<ns.length {
             let char = ns.substring(with: NSRange(location: index, length: 1))
             if char == "□" {
                 flushPending()
-                layout.boxes.append(MathBox(frame: CGRect(x: x, y: (max(size, boxHeight) - boxHeight) / 2, width: boxWidth, height: boxHeight), offset: range.location + index))
+                let slotOffset = range.location + index
+                let value = slotValues[slotOffset] ?? ""
+                let valueSize = value.isEmpty ? .zero : (value as NSString).size(withAttributes: [.font: font])
+                let boxWidth = value.isEmpty ? max(14, size * 0.7) : max(18, valueSize.width + 8)
+                let boxHeight = max(16, valueSize.height + 4)
+                lineHeight = max(lineHeight, boxHeight)
+                let boxFrame = CGRect(x: x, y: (lineHeight - boxHeight) / 2, width: boxWidth, height: boxHeight)
+                layout.boxes.append(MathBox(frame: boxFrame, offset: slotOffset))
+                if !value.isEmpty {
+                    let valueFrame = CGRect(x: x + 4, y: (lineHeight - valueSize.height) / 2, width: valueSize.width, height: valueSize.height)
+                    layout.runs.append(MathRun(string: value, font: font, color: .label, frame: valueFrame))
+                }
                 x += boxWidth
             } else {
                 pending += char
             }
-            carets.append(MathCaret(offset: range.location + index + 1, x: x, top: 0, bottom: max(size, boxHeight)))
+            carets.append(MathCaret(offset: range.location + index + 1, x: x, top: 0, bottom: lineHeight))
         }
         flushPending()
         layout.width = x
-        layout.height = max(size, boxHeight)
+        layout.height = lineHeight
         layout.baseline = font.ascender
         layout.carets = carets
         return layout
