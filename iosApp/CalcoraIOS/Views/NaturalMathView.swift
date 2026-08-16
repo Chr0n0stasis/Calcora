@@ -149,6 +149,11 @@ protocol NaturalMathDrawingViewDelegate: AnyObject {
 final class NaturalMathDrawingView: UIView, UITextViewDelegate {
     weak var delegate: NaturalMathDrawingViewDelegate?
 
+    private struct MathSlot {
+        let id: Int
+        var range: NSRange
+    }
+
     var text: String {
         didSet {
             guard !isUpdatingTextView else { return }
@@ -181,6 +186,8 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
     private let hiddenTextView = UITextView()
     private var isUpdatingTextView = false
     private var layout = MathLayout.zero
+    private var slots: [MathSlot] = []
+    private var activeSlot: MathSlot?
 
     init(text: String = "", selectedRange: NSRange = NSRange(location: 0, length: 0)) {
         self.text = text
@@ -273,6 +280,15 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
             fontSize: fontSize,
             syntaxHighlighting: syntaxHighlighting
         )
+        slots.removeAll(keepingCapacity: true)
+        let ns = text as NSString
+        var search = NSRange(location: 0, length: ns.length)
+        while search.length > 0 {
+            let found = ns.range(of: "□", options: [], range: search)
+            guard found.location != NSNotFound else { break }
+            slots.append(MathSlot(id: found.location, range: found))
+            search = NSRange(location: NSMaxRange(found), length: ns.length - NSMaxRange(found))
+        }
         setNeedsDisplay()
     }
 
@@ -285,10 +301,12 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
             let ns = text as NSString
             if offset < ns.length, ns.substring(with: NSRange(location: offset, length: 1)) == "□" {
                 selectedRange = NSRange(location: offset, length: 1)
+                activeSlot = slots.first { $0.range.location == offset }
                 hiddenTextView.becomeFirstResponder()
                 return
             }
         }
+        activeSlot = nil
         let caret = layout.carets.min {
             abs($0.x - localX) + abs((($0.top + $0.bottom) / 2) - localY) * 1.4
                 < abs($1.x - localX) + abs((($1.top + $1.bottom) / 2) - localY) * 1.4
@@ -321,6 +339,10 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         isUpdatingTextView = true
         text = textView.text
         isUpdatingTextView = false
+        if let activeSlot {
+            let end = min(NSMaxRange(activeSlot.range), text.utf16.count)
+            selectedRange = NSRange(location: end, length: 0)
+        }
         delegate?.naturalMathDrawingViewDidChangeText(self)
         rebuildLayout()
     }
@@ -338,6 +360,21 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         if replacement == "\n" {
             delegate?.naturalMathDrawingViewDidCommit(self)
             return false
+        }
+        if let activeSlot {
+            if replacement.isEmpty {
+                if range == activeSlot.range {
+                    self.activeSlot = nil
+                } else if NSIntersectionRange(range, activeSlot.range).length > 0 {
+                    let newLength = max(0, activeSlot.range.length - range.length)
+                    self.activeSlot = MathSlot(id: activeSlot.id, range: NSRange(location: activeSlot.range.location, length: newLength))
+                }
+            } else if range.location >= activeSlot.range.location && range.location <= NSMaxRange(activeSlot.range) {
+                let newLength = activeSlot.range.length - range.length + replacement.utf16.count
+                self.activeSlot = MathSlot(id: activeSlot.id, range: NSRange(location: activeSlot.range.location, length: newLength))
+            } else {
+                self.activeSlot = nil
+            }
         }
         return true
     }
