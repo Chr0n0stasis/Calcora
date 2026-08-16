@@ -10,23 +10,40 @@ struct CalculatorView: View {
     @State private var showingNaturalMath = false
     @State private var showingResultDetails = false
     @State private var showingHistory = false
+    @State private var showingDebug = false
     @State private var activeTab: ExtraTab = .none
 
     enum ExtraTab {
         case none, vars, funcs, cas
     }
 
-    private let functionButtons = ["sin(", "cos(", "tan(", "asin(", "acos(", "atan(", "sqrt(", "log(", "ln(", "exp(", "abs(", "floor(", "ceil(", "^", "plot(", "plot3d("]
-    private let casButtons = ["solve(", "factor(", "expand(", "diff(", "integrate(", "limit(", "sum(", "det(", "simplify(", "help("]
-    private let variableButtons = ["x", "y", "z", "t", "n", "ans", "π", "e"]
+    private let functionButtons = [
+        "sin(□)", "cos(□)", "tan(□)", "asin(□)", "acos(□)", "atan(□)",
+        "sqrt(□)", "log(□)", "ln(□)", "exp(□)", "abs(□)", "floor(□)", "ceil(□)",
+        "^", "integrate(□,x)", "diff(□,x)", "limit(□,x=0)", "sum(□,k,1,n)",
+        "plot(□,x=-5..5)", "plot3d(□,x=-5..5,y=-5..5)"
+    ]
+    private let casButtons = [
+        "solve(□=0,x)", "factor(□)", "expand(□)", "normal(□)",
+        "subst(□,x=□)", "diff(□,x)", "diff(□,x,2)",
+        "integrate(□,x)", "integrate(□,x,0,1)", "limit(□,x=0)",
+        "sum(□,k,1,n)", "det(□)", "inv(□)", "transpose(□)", "rank(□)",
+        "gcd(□,□)", "lcm(□,□)", "ifactor(□)", "simplify(□)",
+        "plot(□,x=-5..5)", "plot3d(□,x=-5..5,y=-5..5)", "plotparam(□,t)",
+        "makelist(□,k,1,n)", "makemat(□,n,p)", "fft(□)", "ifft(□)", "help(□)"
+    ]
+    private let variableButtons = [
+        "x", "y", "z", "a", "b", "c", "n", "t", "k", "m", "ans", "π", "e",
+        "(", ")", "[", "]", "{", "}", ";", ":=", "→"
+    ]
     
     // Keypad layout
     private let keypadLayout: [[String]] = [
-        ["AC", "(", ")", "÷"],
+        ["AC", "()", "÷", "⌫"],
         ["7", "8", "9", "×"],
         ["4", "5", "6", "−"],
         ["1", "2", "3", "+"],
-        ["0", ".", "⌫", "="]
+        ["0", ".", "^", "="]
     ]
 
     var body: some View {
@@ -46,6 +63,16 @@ struct CalculatorView: View {
                     .contentShape(Rectangle())
                     .onTapGesture { dismissKeyboard() }
                     
+                    if showingDebug {
+                        Text("debug: \(ExpressionFormatter.toEngineInput(store.expression))")
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                            .padding(.horizontal)
+                            .padding(.bottom, 8)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     ExpressionTextView(text: $store.expression, selectedRange: $selectedRange)
                         .frame(maxHeight: .infinity)
                         .accessibilityLabel(LocalizedStringKey("Expression input"))
@@ -77,16 +104,22 @@ struct CalculatorView: View {
                         .padding(.bottom, 12)
 
                         if result.isPlot {
-                            Button {
-                                dismissKeyboard()
-                                showingPlot = true
-                            } label: {
-                                Label(LocalizedStringKey("View plot"), systemImage: "chart.xyaxis.line")
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
+                            PlotCanvas(
+                                items: store.plotItems(),
+                                showGrid: true,
+                                scale: 1,
+                                pan: .zero,
+                                rotation: CGSize(width: 0.62, height: -0.72),
+                                compact: true
+                            )
+                            .frame(height: 170)
                             .padding(.horizontal)
                             .padding(.bottom, 12)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                dismissKeyboard()
+                                showingPlot = true
+                            }
                         }
                     }
                 }
@@ -114,7 +147,7 @@ struct CalculatorView: View {
                         HStack(spacing: 8) {
                             let items = activeTab == .vars ? variableButtons : (activeTab == .funcs ? functionButtons : casButtons)
                             ForEach(items, id: \.self) { item in
-                                Button(item) { insert(item == "help(" ? "help(\"\")" : item) }
+                                Button(item) { insert(item == "→" ? "->" : item) }
                                     .buttonStyle(.bordered)
                             }
                         }
@@ -140,7 +173,9 @@ struct CalculatorView: View {
             .navigationTitle(LocalizedStringKey("Calcora"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button { showingDebug.toggle() } label: { Image(systemName: "chevron.left.forwardslash.chevron.right") }
+                        .accessibilityLabel("Debug input")
                     Button { showingHistory = true } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel(LocalizedStringKey("History"))
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -162,11 +197,6 @@ struct CalculatorView: View {
                 if let result = store.result {
                     PlotView(items: store.plotItems())
                         .environmentObject(store)
-                }
-            }
-            .onChange(of: store.result?.id) { _ in
-                if store.result?.isPlot == true {
-                    showingPlot = true
                 }
             }
             // If there's plot data, maybe a separate launch logic, omitted here or we use a toolbar button if result.isPlot
@@ -203,7 +233,7 @@ struct CalculatorView: View {
     private func keyColor(for key: String) -> Color {
         switch key {
         case "AC", "⌫": return .red
-        case "=", "÷", "×", "−", "+": return .accentColor
+        case "=", "()", "^", "÷", "×", "−", "+": return .accentColor
         default: return .secondary.opacity(0.2)
         }
     }
@@ -215,6 +245,8 @@ struct CalculatorView: View {
             selectedRange = NSRange(location: 0, length: 0)
         case "⌫":
             backspace()
+        case "()":
+            insertSmartParentheses()
         case "=":
             store.evaluate()
         case "÷": insert("/")
@@ -228,9 +260,30 @@ struct CalculatorView: View {
 
     private func insert(_ token: String) {
         let range = selectedRange ?? NSRange(location: (store.expression as NSString).length, length: 0)
-        guard let stringRange = Range(range, in: store.expression) else { store.expression += token; return }
+        let offset = token.firstIndex(of: "□").map { token.distance(from: token.startIndex, to: $0) } ?? (token as NSString).length
+        guard let stringRange = Range(range, in: store.expression) else {
+            store.expression += token
+            selectedRange = NSRange(location: (store.expression as NSString).length - (token as NSString).length + offset, length: token.contains("□") ? 1 : 0)
+            return
+        }
         store.expression.replaceSubrange(stringRange, with: token)
-        selectedRange = NSRange(location: range.location + (token as NSString).length, length: 0)
+        selectedRange = NSRange(location: range.location + offset, length: token.contains("□") ? 1 : 0)
+    }
+
+    private func insertSmartParentheses() {
+        let range = selectedRange ?? NSRange(location: (store.expression as NSString).length, length: 0)
+        guard let stringRange = Range(range, in: store.expression) else {
+            store.expression += "()"
+            selectedRange = NSRange(location: (store.expression as NSString).length - 1, length: 0)
+            return
+        }
+        if range.length > 0 {
+            store.expression.replaceSubrange(stringRange, with: "(\(store.expression[stringRange]))")
+            selectedRange = NSRange(location: range.location + 1, length: range.length)
+        } else {
+            store.expression.replaceSubrange(stringRange, with: "()")
+            selectedRange = NSRange(location: range.location + 1, length: 0)
+        }
     }
 
     private func backspace() {

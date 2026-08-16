@@ -24,7 +24,7 @@ struct PlotView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    PlotCanvas(items: items, showGrid: showGrid, scale: scale, pan: pan, rotation: rotation)
+                    PlotCanvas(items: items, showGrid: showGrid, scale: scale, pan: pan, rotation: rotation, compact: false)
                         .padding()
                         .contentShape(Rectangle())
                         .gesture(dragGesture)
@@ -69,12 +69,13 @@ struct PlotView: View {
     }
 }
 
-private struct PlotCanvas: View {
+struct PlotCanvas: View {
     let items: [PlotItem]
     let showGrid: Bool
     let scale: CGFloat
     let pan: CGSize
     let rotation: CGSize
+    var compact: Bool = false
 
     var body: some View {
         Canvas { context, size in
@@ -85,7 +86,7 @@ private struct PlotCanvas: View {
                 draw2D(items, context: &context, rect: rect)
             }
         }
-        .frame(minHeight: 320)
+        .frame(minHeight: compact ? 150 : 320)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(.secondary.opacity(0.2)))
     }
