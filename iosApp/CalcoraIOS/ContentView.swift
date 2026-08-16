@@ -18,8 +18,7 @@ struct ContentView: View {
                 TabView(selection: $store.selectedTab) {
                     CalculatorView().tabItem { Label("Calculator", systemImage: "function") }.tag(AppTab.calculator)
                     HelpView().tabItem { Label("Help", systemImage: "book") }.tag(AppTab.help)
-                    HistoryView().tabItem { Label("History", systemImage: "clock.arrow.circlepath") }.tag(AppTab.history)
-                    SettingsView().tabItem { Label("Settings", systemImage: "gearshape") }.tag(AppTab.settings)
+                                        SettingsView().tabItem { Label("Settings", systemImage: "gearshape") }.tag(AppTab.settings)
                 }
             }
         }
@@ -31,8 +30,7 @@ struct ContentView: View {
         switch store.selectedTab {
         case .calculator: CalculatorView()
         case .help: HelpView()
-        case .history: HistoryView()
-        case .settings: SettingsView()
+                case .settings: SettingsView()
         }
     }
 }

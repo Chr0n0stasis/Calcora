@@ -114,13 +114,12 @@ struct ReleaseInfo: Codable, Equatable {
 enum AppTab: String, CaseIterable, Identifiable, Hashable {
     case calculator
     case help
-    case history
-    case settings
+        case settings
     var id: String { rawValue }
     var title: String {
-        switch self { case .calculator: "Calculator"; case .help: "Help"; case .history: "History"; case .settings: "Settings" }
+        switch self { case .calculator: "Calculator"; case .help: "Help"; case .settings: "Settings" }
     }
     var symbol: String {
-        switch self { case .calculator: "function"; case .help: "book"; case .history: "clock.arrow.circlepath"; case .settings: "gearshape" }
+        switch self { case .calculator: "function"; case .help: "book"; case .settings: "gearshape" }
     }
 }
