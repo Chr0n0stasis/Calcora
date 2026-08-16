@@ -27,7 +27,9 @@ struct NaturalMathInputView: UIViewRepresentable {
         view.fontSize = fontSize
         view.syntaxHighlighting = syntaxHighlighting
         if view.text != text { view.text = text }
-        if let selectedRange, view.selectedRange != selectedRange { view.selectedRange = selectedRange }
+        if let selectedRange, view.selectedRange != selectedRange, !view.isEditingMath {
+            view.selectedRange = selectedRange
+        }
     }
 
     final class Coordinator: NSObject, NaturalMathDrawingViewDelegate {
@@ -161,8 +163,12 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
     var selectedRange: NSRange {
         didSet {
             guard !isUpdatingTextView else { return }
+            let maxLocation = text.utf16.count
+            let safeLocation = min(selectedRange.location, maxLocation)
+            let safeLength = min(selectedRange.length, maxLocation - safeLocation)
+            let safeRange = NSRange(location: safeLocation, length: safeLength)
             isUpdatingTextView = true
-            hiddenTextView.selectedRange = selectedRange
+            hiddenTextView.selectedRange = safeRange
             isUpdatingTextView = false
             setNeedsDisplay()
         }
@@ -170,6 +176,7 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
 
     var fontSize: CGFloat = 26 { didSet { setNeedsLayout(); setNeedsDisplay() } }
     var syntaxHighlighting = true { didSet { setNeedsDisplay() } }
+    var isEditingMath: Bool { hiddenTextView.isFirstResponder }
 
     private let hiddenTextView = UITextView()
     private var isUpdatingTextView = false
@@ -273,6 +280,15 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         let point = gesture.location(in: self)
         let localX = point.x - 10
         let localY = point.y - max(4, (bounds.height - layout.height) / 2)
+        if let box = layout.boxes.first(where: { $0.frame.insetBy(dx: -7, dy: -7).contains(CGPoint(x: localX, y: localY)) }) {
+            let offset = box.offset
+            let ns = text as NSString
+            if offset < ns.length, ns.substring(with: NSRange(location: offset, length: 1)) == "□" {
+                selectedRange = NSRange(location: offset, length: 1)
+                hiddenTextView.becomeFirstResponder()
+                return
+            }
+        }
         let caret = layout.carets.min {
             abs($0.x - localX) + abs((($0.top + $0.bottom) / 2) - localY) * 1.4
                 < abs($1.x - localX) + abs((($1.top + $1.bottom) / 2) - localY) * 1.4
@@ -358,6 +374,7 @@ private struct MathRun {
 
 private struct MathBox {
     let frame: CGRect
+    let offset: Int
 
     func draw() {
         let path = UIBezierPath(roundedRect: frame, cornerRadius: 4)
@@ -480,7 +497,7 @@ private final class Painter {
             let char = ns.substring(with: NSRange(location: index, length: 1))
             if char == "□" {
                 flushPending()
-                layout.boxes.append(MathBox(frame: CGRect(x: x, y: (max(size, boxHeight) - boxHeight) / 2, width: boxWidth, height: boxHeight)))
+                layout.boxes.append(MathBox(frame: CGRect(x: x, y: (max(size, boxHeight) - boxHeight) / 2, width: boxWidth, height: boxHeight), offset: range.location + index))
                 x += boxWidth
             } else {
                 pending += char
@@ -620,7 +637,7 @@ private final class Painter {
         result.runs.append(contentsOf: contentLayout.runs.map { run in
             MathRun(string: run.string, font: run.font, color: run.color, frame: run.frame.offsetBy(dx: contentX, dy: contentY))
         })
-        result.boxes.append(contentsOf: contentLayout.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: contentX, dy: contentY)) })
+        result.boxes.append(contentsOf: contentLayout.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: contentX, dy: contentY), offset: $0.offset) })
         result.carets.append(MathCaret(offset: range.location, x: 0, top: 0, bottom: result.height))
         result.carets.append(contentsOf: contentLayout.carets.map { MathCaret(offset: $0.offset, x: $0.x + contentX, top: $0.top + contentY, bottom: $0.bottom + contentY) })
         result.carets.append(MathCaret(offset: NSMaxRange(range), x: result.width, top: 0, bottom: result.height))
@@ -667,11 +684,11 @@ private final class Painter {
         let leftY = (maxHeight - left.height) / 2
         let rightY = (maxHeight - right.height) / 2
         result.runs.append(contentsOf: left.runs.map { MathRun(string: $0.string, font: $0.font, color: $0.color, frame: $0.frame.offsetBy(dx: 0, dy: leftY)) })
-        result.boxes.append(contentsOf: left.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: 0, dy: leftY)) })
+        result.boxes.append(contentsOf: left.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: 0, dy: leftY), offset: $0.offset) })
         result.lines.append(contentsOf: left.lines.map { MathLine(frame: $0.frame.offsetBy(dx: 0, dy: leftY), color: $0.color) })
         result.carets.append(contentsOf: left.carets.map { MathCaret(offset: $0.offset, x: $0.x, top: $0.top + leftY, bottom: $0.bottom + leftY) })
         result.runs.append(contentsOf: right.runs.map { MathRun(string: $0.string, font: $0.font, color: $0.color, frame: $0.frame.offsetBy(dx: left.width + gap, dy: rightY)) })
-        result.boxes.append(contentsOf: right.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: left.width + gap, dy: rightY)) })
+        result.boxes.append(contentsOf: right.boxes.map { MathBox(frame: $0.frame.offsetBy(dx: left.width + gap, dy: rightY), offset: $0.offset) })
         result.lines.append(contentsOf: right.lines.map { MathLine(frame: $0.frame.offsetBy(dx: left.width + gap, dy: rightY), color: $0.color) })
         result.carets.append(contentsOf: right.carets.map { MathCaret(offset: $0.offset, x: $0.x + left.width + gap, top: $0.top + rightY, bottom: $0.bottom + rightY) })
         return result
