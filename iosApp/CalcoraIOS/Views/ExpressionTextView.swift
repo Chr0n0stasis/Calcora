@@ -55,6 +55,7 @@ struct ExpressionTextView: UIViewRepresentable {
 
     private static func makeAttributedText(_ text: String, placeholderColor: UIColor) -> NSAttributedString {
         let attributed = NSMutableAttributedString(string: text)
+        attributed.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: 0, length: attributed.length))
         var searchRange = NSRange(location: 0, length: attributed.length)
         while searchRange.length > 0 {
             let found = (text as NSString).range(of: "□", options: [], range: searchRange)

@@ -13,8 +13,8 @@ struct SettingsView: View {
                 Section(LocalizedStringKey("Calculation")) {
                     Picker(LocalizedStringKey("Default mode"), selection: Binding(get: { store.settings.defaultEvalMode }, set: { value in store.settings.defaultEvalMode = value; store.selectedMode = value })) { ForEach(EvalMode.allCases) { Text($0.rawValue).tag($0) } }
                     Picker("Angle unit", selection: $store.settings.angleUnit) { ForEach(AngleUnit.allCases) { Text($0.rawValue).tag($0) } }
-                    Stepper("Precision: \(store.settings.precision)", value: $store.settings.precision, in: 4...20)
-                    Stepper("History limit: \(store.settings.historyLimit)", value: $store.settings.historyLimit, in: 20...200, step: 4)
+                    Stepper(String(format: NSLocalizedString("Precision: %d", comment: ""), store.settings.precision), value: $store.settings.precision, in: 4...20)
+                    Stepper(String(format: NSLocalizedString("History limit: %d", comment: ""), store.settings.historyLimit), value: $store.settings.historyLimit, in: 20...200, step: 4)
                 }
                 Section(LocalizedStringKey("Editor")) {
                     Toggle("Autocomplete", isOn: $store.settings.autocompleteEnabled)

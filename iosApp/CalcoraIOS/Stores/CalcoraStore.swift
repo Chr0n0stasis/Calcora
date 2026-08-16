@@ -310,7 +310,9 @@ final class CalcoraStore: ObservableObject {
             }
         }
         flush()
-        return entries.filter { !$0.name.isEmpty }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return entries
+            .filter { !$0.name.isEmpty && !$0.name.hasPrefix("_") }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private func persistSettings() { if let data = try? JSONEncoder().encode(settings) { UserDefaults.standard.set(data, forKey: settingsKey) } }

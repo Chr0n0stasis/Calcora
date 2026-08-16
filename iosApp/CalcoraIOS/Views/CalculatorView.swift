@@ -270,7 +270,7 @@ struct CalculatorView: View {
         switch key {
         case "AC", "⌫": return .red
         case "=", "EXE", "()", "^", "÷", "×", "−", "+": return .accentColor
-        default: return Color(uiColor: .tertiarySystemFill)
+        default: return Color(uiColor: .secondarySystemGroupedBackground)
         }
     }
 

@@ -23,6 +23,7 @@ struct ContentView: View {
             }
         }
         .environmentObject(store)
+        .environment(\.locale, Locale(identifier: store.settings.language.localeIdentifier))
         .preferredColorScheme(store.settings.themeMode.colorScheme)
     }
 

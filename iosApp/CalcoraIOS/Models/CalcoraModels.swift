@@ -45,6 +45,13 @@ enum AppLanguage: String, CaseIterable, Codable, Identifiable {
     case english = "English"
     case chinese = "中文"
     var id: String { rawValue }
+    var localeIdentifier: String {
+        switch self {
+        case .chinese: "zh-Hans"
+        case .english: "en"
+        case .system: Locale.current.identifier
+        }
+    }
     var giacCode: Int32 {
         switch self {
         case .chinese: 8

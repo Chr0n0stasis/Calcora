@@ -97,3 +97,5 @@
 "Syntax highlighting is applied to native text fields and may be disabled for accessibility or performance." = "Syntax highlighting is applied to native text fields and may be disabled for accessibility or performance.";
 "Calcora uses the native Giac engine and is designed for touch, keyboard, Dynamic Type, and iPad multitasking." = "Calcora uses the native Giac engine and is designed for touch, keyboard, Dynamic Type, and iPad multitasking.";
 "Scripts are stored in the app's private Documents support area." = "Scripts are stored in the app's private Documents support area.";
+"Precision: %d" = "Precision: %d";
+"History limit: %d" = "History limit: %d";

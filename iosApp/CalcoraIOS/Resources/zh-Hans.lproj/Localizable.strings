@@ -97,3 +97,5 @@
 "Syntax highlighting is applied to native text fields and may be disabled for accessibility or performance." = "语法高亮应用于原生文本输入框，关闭可改善可访问性或性能。";
 "Calcora uses the native Giac engine and is designed for touch, keyboard, Dynamic Type, and iPad multitasking." = "Calcora 使用原生 Giac 引擎，并针对触控、键盘、动态字体与 iPad 多任务设计。";
 "Scripts are stored in the app's private Documents support area." = "脚本保存在 App 的私有文档目录中。";
+"Precision: %d" = "精度：%d";
+"History limit: %d" = "历史条数：%d";

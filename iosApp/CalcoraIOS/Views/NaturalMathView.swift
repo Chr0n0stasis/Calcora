@@ -228,6 +228,13 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
             line.draw()
         }
 
+        if selectedRange.length == 1, let box = layout.boxes.first(where: { $0.offset == selectedRange.location }) {
+            let path = UIBezierPath(roundedRect: box.frame, cornerRadius: 5)
+            UIColor.systemBlue.withAlphaComponent(0.55).setStroke()
+            path.lineWidth = 1.5
+            path.stroke()
+        }
+
         if selectedRange.length == 0, let caret = layout.carets.min(by: { abs($0.offset - selectedRange.location) < abs($1.offset - selectedRange.location) }) {
             let path = UIBezierPath()
             path.move(to: CGPoint(x: caret.x, y: caret.top))
@@ -444,6 +451,7 @@ private struct MathCaret {
 private struct MathLayout {
     var width: CGFloat = 0
     var height: CGFloat = 0
+    var baseline: CGFloat = 0
     var runs: [MathRun] = []
     var boxes: [MathBox] = []
     var lines: [MathLine] = []
@@ -544,6 +552,7 @@ private final class Painter {
         flushPending()
         layout.width = x
         layout.height = max(size, boxHeight)
+        layout.baseline = font.ascender
         layout.carets = carets
         return layout
     }
@@ -552,19 +561,21 @@ private final class Painter {
         guard !children.isEmpty else { return MathLayout.zero }
         var result = MathLayout()
         var x: CGFloat = 0
-        var maxTop: CGFloat = 0
+        var maxBaseline: CGFloat = 0
         var childLayouts: [(MathLayout, CGFloat)] = []
 
         for child in children {
             let childLayout = layoutNode(child, scale: scale)
             childLayouts.append((childLayout, x))
             x += childLayout.width + 3
-            maxTop = max(maxTop, childLayout.height)
+            maxBaseline = max(maxBaseline, childLayout.baseline)
         }
         result.width = max(0, x - 3)
-        result.height = maxTop
+        result.baseline = maxBaseline
+        result.height = 0
         for (childLayout, childX) in childLayouts {
-            let yOffset = (maxTop - childLayout.height) / 2
+            let yOffset = maxBaseline - childLayout.baseline
+            result.height = max(result.height, yOffset + childLayout.height)
             result.runs.append(contentsOf: childLayout.runs.map { run in
                 MathRun(string: run.string, font: run.font, color: run.color, frame: run.frame.offsetBy(dx: childX, dy: yOffset))
             })
