@@ -38,7 +38,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/Library/Developer/Xcode/DerivedData
-          key: ${{ runner.os }}-xcode-deriveddata-${{ hashFiles('giac-2.0.0/**', 'app/src/main/cpp/**', 'iosApp/**/*.swift') }}
+          key: ${{ runner.os }}-xcode-deriveddata-${{ hashFiles('iosApp/**/*.swift', 'iosApp/CalcoraIOS.xcodeproj/project.pbxproj', 'app/src/main/cpp/calcora_engine.*') }}
           restore-keys: |
             ${{ runner.os }}-xcode-deriveddata-
 
