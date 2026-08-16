@@ -30,11 +30,11 @@ struct TerminalView: View {
                 }
                 .padding()
             }
-            .navigationTitle("CAS Terminal")
+            .navigationTitle(LocalizedStringKey("CAS Terminal"))
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .topBarLeading) { Button(LocalizedStringKey("Done")) { dismiss() } }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Clear") { store.clearTerminal() }
+                    Button(LocalizedStringKey("Clear")) { store.clearTerminal() }
                 }
             }
         }

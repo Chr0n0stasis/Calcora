@@ -19,7 +19,7 @@ struct PlotView: View {
                 if items.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "chart.xyaxis.line").font(.largeTitle).foregroundColor(.secondary)
-                        Text("No plot data").font(.headline)
+                        Text(LocalizedStringKey("No plot data")).font(.headline)
                         Text("Evaluate a plot expression first.").font(.subheadline).foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -31,13 +31,13 @@ struct PlotView: View {
                         .simultaneousGesture(magnifyGesture)
                 }
             }
-            .navigationTitle(hasSurface ? "3D Plot" : "Plot")
+            .navigationTitle(LocalizedStringKey(hasSurface ? "3D Plot" : "Plot"))
             .toolbar {
                 ToolbarItemGroup(placement: .topBarLeading) {
-                    Button { showGrid.toggle() } label: { Image(systemName: showGrid ? "grid" : "grid.slash") }.accessibilityLabel("Toggle grid")
-                    Button { reset() } label: { Image(systemName: "arrow.counterclockwise") }.accessibilityLabel("Reset view")
+                    Button { showGrid.toggle() } label: { Image(systemName: showGrid ? "grid" : "grid.slash") }.accessibilityLabel(LocalizedStringKey("Toggle grid"))
+                    Button { reset() } label: { Image(systemName: "arrow.counterclockwise") }.accessibilityLabel(LocalizedStringKey("Reset view"))
                 }
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button(LocalizedStringKey("Done")) { dismiss() } }
             }
         }
     }

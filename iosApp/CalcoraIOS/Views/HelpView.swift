@@ -8,15 +8,15 @@ struct HelpView: View {
         NavigationStack {
             List {
                 if store.helpQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Section("Quick start") {
-                        Text("Search by function name, alias, signature, description, related command, or example.")
+                    Section(LocalizedStringKey("Quick start")) {
+                        Text(LocalizedStringKey("Search by function name, alias, signature, description, related command, or example."))
                             .font(.callout).foregroundStyle(.secondary)
                     }
                 }
                 let grouped = Dictionary(grouping: store.searchHelp(), by: category(for:))
                 ForEach(categoryOrder, id: \.self) { category in
                     if let entries = grouped[category], !entries.isEmpty {
-                        Section(category) {
+                        Section(LocalizedStringKey(category)) {
                             ForEach(entries) { entry in
                                 HStack {
                                     NavigationLink(value: entry) {
@@ -27,10 +27,20 @@ struct HelpView: View {
                                             }
                                             Text(entry.syntax).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
                                             Text(entry.description).foregroundStyle(.secondary).lineLimit(2)
+                                            if let example = entry.examples.first {
+                                                Button {
+                                                    fillCalculator(with: example)
+                                                } label: {
+                                                    Label(example, systemImage: "play.circle")
+                                                        .font(.caption)
+                                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                                }
+                                                .buttonStyle(.borderless)
+                                            }
                                         }
                                     }
                                     Button {
-                                        fillCalculator(with: entry)
+                                        fillCalculator(with: entry.syntax)
                                     } label: {
                                         Image(systemName: "plus.circle.fill")
                                     }
@@ -42,8 +52,8 @@ struct HelpView: View {
                     }
                 }
             }
-            .navigationTitle("Help")
-            .searchable(text: $store.helpQuery, prompt: "Search functions")
+            .navigationTitle(LocalizedStringKey("Help"))
+            .searchable(text: $store.helpQuery, prompt: Text("Search functions"))
             .navigationDestination(for: HelpEntry.self) { entry in HelpDetailView(entry: store.helpDetail(for: entry)) }
         }
     }
@@ -77,8 +87,8 @@ struct HelpView: View {
         return "Other"
     }
 
-    private func fillCalculator(with entry: HelpEntry) {
-        store.expression = entry.syntax
+    private func fillCalculator(with expression: String) {
+        store.expression = expression
         store.selectedTab = .calculator
     }
 }
@@ -89,26 +99,26 @@ struct HelpDetailView: View {
 
     var body: some View {
         List {
-            Section("Signature") { Text(entry.syntax).font(.system(.body, design: .monospaced)).textSelection(.enabled) }
-            if !entry.aliases.isEmpty { Section("Aliases") { Text(entry.aliases.joined(separator: ", ")).font(.system(.body, design: .monospaced)) } }
-            Section("Description") { Text(entry.description).textSelection(.enabled) }
+            Section(LocalizedStringKey("Signature")) { Text(entry.syntax).font(.system(.body, design: .monospaced)).textSelection(.enabled) }
+            if !entry.aliases.isEmpty { Section(LocalizedStringKey("Aliases")) { Text(entry.aliases.joined(separator: ", ")).font(.system(.body, design: .monospaced)) } }
+            Section(LocalizedStringKey("Description")) { Text(entry.description).textSelection(.enabled) }
             if !entry.examples.isEmpty {
-                Section("Examples") {
+                Section(LocalizedStringKey("Examples")) {
                     ForEach(entry.examples, id: \.self) { example in
-                        Button { store.evaluateAndAppend(example) } label: {
+                        Button { fillCalculator(with: example) } label: {
                             Label { Text(example).font(.system(.body, design: .monospaced)).frame(maxWidth: .infinity, alignment: .leading) } icon: { Image(systemName: "play.circle") }
                         }
                     }
                 }
             }
             if !entry.related.isEmpty {
-                Section("Related") { ForEach(entry.related, id: \.self) { Text($0).font(.system(.body, design: .monospaced)) } }
+                Section(LocalizedStringKey("Related")) { ForEach(entry.related, id: \.self) { Text($0).font(.system(.body, design: .monospaced)) } }
             }
         }
         .navigationTitle(entry.name)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button { UIPasteboard.general.string = entry.syntax } label: { Image(systemName: "doc.on.doc") }.accessibilityLabel("Copy signature")
+                Button { UIPasteboard.general.string = entry.syntax } label: { Image(systemName: "doc.on.doc") }.accessibilityLabel(LocalizedStringKey("Copy signature"))
                 Button {
                     store.expression = entry.syntax
                     store.selectedTab = .calculator

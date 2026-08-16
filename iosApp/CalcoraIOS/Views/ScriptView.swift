@@ -33,21 +33,21 @@ struct ScriptView: View {
                     }
                 }
             }
-            .navigationTitle("Script Editor")
+            .navigationTitle(LocalizedStringKey("Script Editor"))
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(LocalizedStringKey("Done")) { dismiss() } }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button { saveName = store.scriptName.replacingOccurrences(of: ".xcas", with: ""); showingSave = true } label: { Image(systemName: "square.and.arrow.down") }.accessibilityLabel("Save script")
-                    Button { exportDocument = ScriptTextDocument(text: store.scriptText); showingExporter = true } label: { Image(systemName: "square.and.arrow.up") }.accessibilityLabel("Export script")
-                    Button { showingImporter = true } label: { Image(systemName: "folder") }.accessibilityLabel("Import script")
+                    Button { saveName = store.scriptName.replacingOccurrences(of: ".xcas", with: ""); showingSave = true } label: { Image(systemName: "square.and.arrow.down") }.accessibilityLabel(LocalizedStringKey("Save script"))
+                    Button { exportDocument = ScriptTextDocument(text: store.scriptText); showingExporter = true } label: { Image(systemName: "square.and.arrow.up") }.accessibilityLabel(LocalizedStringKey("Export script"))
+                    Button { showingImporter = true } label: { Image(systemName: "folder") }.accessibilityLabel(LocalizedStringKey("Import script"))
                 }
             }
-            .alert("Save Script", isPresented: $showingSave) {
-                TextField("Script name", text: $saveName)
-                Button("Save") { doSave() }
-                Button("Cancel", role: .cancel) {}
+            .alert(LocalizedStringKey("Save Script"), isPresented: $showingSave) {
+                TextField(LocalizedStringKey("Script name"), text: $saveName)
+                Button(LocalizedStringKey("Save")) { doSave() }
+                Button(LocalizedStringKey("Cancel"), role: .cancel) {}
             } message: { Text("Scripts are stored in the app's private Documents support area.") }
-            .alert("Script Error", isPresented: Binding(get: { !errorMessage.isEmpty }, set: { if !$0 { errorMessage = "" } })) { Button("OK") {} } message: { Text(errorMessage) }
+            .alert(LocalizedStringKey("Script Error"), isPresented: Binding(get: { !errorMessage.isEmpty }, set: { if !$0 { errorMessage = "" } })) { Button(LocalizedStringKey("OK")) {} } message: { Text(errorMessage) }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.plainText, .text, UTType(exportedAs: "com.example.calcora.xcas")], allowsMultipleSelection: false) { result in
                 if case .success(let urls) = result, let url = urls.first { do { try store.importScript(from: url) } catch { errorMessage = error.localizedDescription } }
             }
@@ -64,8 +64,8 @@ struct ScriptView: View {
                 .padding(8)
                 .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
             HStack {
-                Button("Run", systemImage: "play.fill") { store.runScript() }.buttonStyle(.borderedProminent)
-                Button("Clear output") { store.clearScriptOutput() }.buttonStyle(.bordered)
+                Button { store.runScript() } label: { Label(LocalizedStringKey("Run"), systemImage: "play.fill") }.buttonStyle(.borderedProminent)
+                Button(LocalizedStringKey("Clear output")) { store.clearScriptOutput() }.buttonStyle(.bordered)
                 Spacer()
                 Text(store.scriptName).font(.caption).foregroundStyle(.secondary)
             }
@@ -83,8 +83,8 @@ struct ScriptView: View {
 
     private var scriptList: some View {
         List {
-            Section("Saved scripts") {
-                if store.scriptNames.isEmpty { Text("No saved scripts").foregroundStyle(.secondary) }
+            Section(LocalizedStringKey("Saved scripts")) {
+                if store.scriptNames.isEmpty { Text(LocalizedStringKey("No saved scripts")).foregroundStyle(.secondary) }
                 ForEach(store.scriptNames, id: \.self) { name in
                     HStack {
                         Button(name) { doLoad(name) }.frame(maxWidth: .infinity, alignment: .leading)

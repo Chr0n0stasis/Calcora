@@ -9,8 +9,8 @@ struct HistoryView: View {
                 if store.history.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "clock.arrow.circlepath").font(.largeTitle).foregroundStyle(.secondary)
-                        Text("No History").font(.headline)
-                        Text("Evaluate an expression to create a history entry.").font(.subheadline).foregroundStyle(.secondary)
+                        Text(LocalizedStringKey("No History")).font(.headline)
+                        Text(LocalizedStringKey("Evaluate an expression to create a history entry.")).font(.subheadline).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 48)
@@ -33,10 +33,10 @@ struct HistoryView: View {
                     .onDelete(perform: store.deleteHistory)
                 }
             }
-            .navigationTitle("History")
+            .navigationTitle(LocalizedStringKey("History"))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Clear", role: .destructive) { store.clearHistory() }
+                    Button(LocalizedStringKey("Clear"), role: .destructive) { store.clearHistory() }
                         .disabled(store.history.isEmpty)
                 }
             }

@@ -153,7 +153,7 @@ struct CalculatorView: View {
                         HStack(spacing: 8) {
                             let items = activeTab == .vars ? variableButtons : (activeTab == .funcs ? functionButtons : casButtons)
                             ForEach(items, id: \.self) { item in
-                                Button(item) { insert(item == "→" ? "->" : item) }
+                                Button(item) { tapFeedback(); insert(item == "→" ? "->" : item) }
                                     .buttonStyle(.bordered)
                             }
                         }
@@ -185,11 +185,11 @@ struct CalculatorView: View {
                             .font(.headline)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint("Dismiss keyboard")
+                    .accessibilityHint(Text(LocalizedStringKey("Dismiss keyboard")))
                 }
                 ToolbarItemGroup(placement: .topBarLeading) {
                     Button { showingDebug.toggle() } label: { Image(systemName: "chevron.left.forwardslash.chevron.right") }
-                        .accessibilityLabel("Debug input")
+                        .accessibilityLabel(LocalizedStringKey("Debug input"))
                     Button { showingHistory = true } label: { Image(systemName: "clock.arrow.circlepath") }.accessibilityLabel(LocalizedStringKey("History"))
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -247,6 +247,7 @@ struct CalculatorView: View {
 
     private func keypadButton(_ key: String) -> some View {
         Button {
+            tapFeedback()
             handleKey(key)
         } label: {
             Text(key)
@@ -262,7 +263,7 @@ struct CalculatorView: View {
         switch key {
         case "AC", "⌫": return .red
         case "=", "()", "^", "÷", "×", "−", "+": return .accentColor
-        default: return .secondary.opacity(0.2)
+        default: return Color(uiColor: .tertiarySystemFill)
         }
     }
 
@@ -349,5 +350,9 @@ struct CalculatorView: View {
 
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func tapFeedback(style: UIImpactFeedbackGenerator.FeedbackStyle = .light) {
+        UIImpactFeedbackGenerator(style: style).impactOccurred()
     }
 }
