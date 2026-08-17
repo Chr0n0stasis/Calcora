@@ -48,6 +48,8 @@ jobs:
           path: |
             third_party/**/*.o
             third_party/**/*.a
+            iosApp/native/build/**
+            App/build/**
             giac-2.0.0/src/**/*.o
             giac-2.0.0/src/**/*.a
             app/src/main/cpp/**/*.o
@@ -202,4 +204,6 @@ jobs:
         run: |
           security delete-keychain "$IOS_KEYCHAIN_PATH" || true
           rm -f "$RUNNER_TEMP/calcora-signing.p12" "$RUNNER_TEMP/calcora.mobileprovision"
+
+
 
