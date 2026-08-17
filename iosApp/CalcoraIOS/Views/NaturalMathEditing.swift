@@ -65,8 +65,8 @@ internal enum NaturalMathEditing {
             case .script(let base, let sub, let sup, _): traverse(base); if let sub = sub { traverse(sub) }; if let sup { traverse(sup) }
             case .delimited(_, let content, _, _): traverse(content)
             case .root(let inner, _): traverse(inner)
-            case .integral(let lower, let upper, let innd, _): if let l = lower { traverse(l) }; if let u = upper { traverse(u) }; traverse(innd)
-            case .summation(let lower, let upper, let innd, _): if let l = lower { traverse(l) }; if let u = upper { traverse(u) }; traverse(innd)
+            case .integral(let lower, let upper, let innd, _, _): if let l = lower { traverse(l) }; if let u = upper { traverse(u) }; traverse(innd)
+            case .summation(let lower, let upper, let innd, _, _): if let l = lower { traverse(l) }; if let u = upper { traverse(u) }; traverse(innd)
             case .derivative(let a, let b, _): traverse(a); traverse(b)
             case .limit(let a, let b, _): traverse(a); traverse(b)
             }
@@ -89,8 +89,8 @@ internal enum NaturalMathEditing {
             case .script(let base, let sub, let sup, _): traverse(base); if let sub = sub { traverse(sub) }; if let sup { traverse(sup) }
             case .delimited(_, let content, _, _): traverse(content)
             case .root(let inner, _): traverse(inner)
-            case .integral(let lower, let upper, let innd, _): if let l = lower { traverse(l) }; if let u = upper { traverse(u) }; traverse(innd)
-            case .summation(let lower, let upper, let innd, _): if let l = lower { traverse(l) }; if let u = upper { traverse(u) }; traverse(innd)
+            case .integral(let lower, let upper, let innd, _, _): if let l = lower { traverse(l) }; if let u = upper { traverse(u) }; traverse(innd)
+            case .summation(let lower, let upper, let innd, _, _): if let l = lower { traverse(l) }; if let u = upper { traverse(u) }; traverse(innd)
             case .derivative(let a, let b, _): traverse(a); traverse(b)
             case .limit(let a, let b, _): traverse(a); traverse(b)
             }
@@ -109,5 +109,6 @@ internal enum NaturalMathEditing {
         return NaturalMathEdit(text: text, selectionStart: nextPos)
     }
 }
+
 
 
