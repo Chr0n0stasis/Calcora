@@ -308,22 +308,12 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
         hiddenTextView.becomeFirstResponder()
     }
 
-    @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
+        @objc private func handleSwipe(_ gesture: UISwipeGestureRecognizer) {
         guard hiddenTextView.isFirstResponder else { return }
         let current = selectedRange
-        if gesture.direction == .left {
-            if current.length > 0 {
-                selectedRange = NSRange(location: current.location, length: 0)
-            } else if current.location > 0 {
-                selectedRange = NSRange(location: current.location - 1, length: 0)
-            }
-        } else {
-            if current.length > 0 {
-                selectedRange = NSRange(location: NSMaxRange(current), length: 0)
-            } else if current.location < text.utf16.count {
-                selectedRange = NSRange(location: current.location + 1, length: 0)
-            }
-        }
+        let direction = gesture.direction == .left ? -1 : 1
+        let edit = NaturalMathEditing.moveHorizontally(text: text, cursor: current.location, direction: direction)
+        selectedRange = NSRange(location: edit.selectionStart, length: 0)
     }
 
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
@@ -680,7 +670,9 @@ private final class Painter {
     }
 
     private func integralLayout(lower: MathNode?, upper: MathNode?, body: MathNode, range: NSRange) -> MathLayout {
-        largeOperatorLayout(symbol: "∫", lower: lower, upper: upper, body: body, range: range)
+        let opLayout = largeOperatorLayout(symbol: "∫", lower: lower, upper: upper, body: body, range: range)
+        let dText = textLayout(" dx", range: NSRange(location: range.upperBound, length: 0), scale: 1)
+        return appendRow(opLayout, dText)
     }
 
     private func summationLayout(lower: MathNode?, upper: MathNode?, body: MathNode, range: NSRange) -> MathLayout {
@@ -889,6 +881,8 @@ internal enum MathParser {
         return result
     }
 }
+
+
 
 
 
