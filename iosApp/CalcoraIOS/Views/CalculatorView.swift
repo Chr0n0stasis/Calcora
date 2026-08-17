@@ -47,6 +47,7 @@ struct CalculatorView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             VStack(spacing: 0) {
                 // Expression and Result Area
                 VStack(alignment: .leading, spacing: 0) {
@@ -223,6 +224,7 @@ struct CalculatorView: View {
                     Button { showingTerminal = true } label: { Image(systemName: "terminal") }.accessibilityLabel(LocalizedStringKey("CAS Terminal"))
                     Button { showingScript = true } label: { Image(systemName: "doc.text") }.accessibilityLabel(LocalizedStringKey("Script Editor"))
                 }
+            }
             }
             } // ScrollViewReader
             .sheet(isPresented: $showingHistory) {
@@ -461,3 +463,4 @@ struct CalculatorView: View {
         UIImpactFeedbackGenerator(style: style).impactOccurred()
     }
 }
+

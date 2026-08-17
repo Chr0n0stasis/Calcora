@@ -364,6 +364,7 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
 // MARK: - Math node model
 
 internal indirect enum MathNode {
+
     case text(String, NSRange)
     case row([MathNode], NSRange)
     case fraction(MathNode, MathNode, NSRange)
@@ -396,7 +397,7 @@ internal indirect enum MathNode {
 
 // MARK: - Layout primitives
 
-private internal struct MathRun {
+internal struct MathRun {
     let string: String
     let font: UIFont
     let color: UIColor
@@ -440,7 +441,7 @@ private struct MathCaret {
     let bottom: CGFloat
 }
 
-private internal struct MathLayout {
+internal struct MathLayout {
     var width: CGFloat = 0
     var height: CGFloat = 0
     var baseline: CGFloat = 0
@@ -778,7 +779,12 @@ private final class Painter {
 
 // MARK: - Minimal Xcas parser
 
-private enum MathParser {
+internal enum MathParser {
+    static func internalParse(_ text: String) -> MathNode? {
+        let ns = text as NSString
+        return parse(ns, NSRange(location: 0, length: ns.length))
+    }
+
     static func parse(_ source: NSString, _ range: NSRange) -> MathNode {
         let full = source.substring(with: range)
         guard !full.isEmpty else { return .text("", range) }
@@ -883,3 +889,7 @@ private enum MathParser {
         return result
     }
 }
+
+
+
+

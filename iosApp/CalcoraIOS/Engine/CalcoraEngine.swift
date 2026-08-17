@@ -16,7 +16,7 @@ struct ExpressionFormatter {
     }
 }
 
-final class CalcoraEngine {
+final class CalcoraEngine: @unchecked Sendable {
     static let shared = CalcoraEngine()
 
     private let lock = NSLock()
@@ -183,3 +183,4 @@ private extension NSLock {
         return body()
     }
 }
+
