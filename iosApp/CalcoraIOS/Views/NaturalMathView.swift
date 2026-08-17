@@ -396,7 +396,7 @@ internal indirect enum MathNode {
 
 // MARK: - Layout primitives
 
-private struct MathRun {
+private internal struct MathRun {
     let string: String
     let font: UIFont
     let color: UIColor
@@ -440,7 +440,7 @@ private struct MathCaret {
     let bottom: CGFloat
 }
 
-private struct MathLayout {
+private internal struct MathLayout {
     var width: CGFloat = 0
     var height: CGFloat = 0
     var baseline: CGFloat = 0
