@@ -21,6 +21,7 @@
 		100000000000000000000024 /* PlotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* PlotView.swift */; };
 		100000000000000000000036 /* ExpressionTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000026 /* ExpressionTextView.swift */; };
 		100000000000000000000037 /* NaturalMathView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000027 /* NaturalMathView.swift */; };
+		100000000000000000000041 /* NaturalMathEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000042 /* NaturalMathEditing.swift */; };
 		100000000000000000000038 /* ResultDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000028 /* ResultDetailView.swift */; };
 		100000000000000000000009 /* aide_cas in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000019 /* aide_cas */; };
 		10000000000000000000000A /* Resources/zh in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001A /* zh resources */; };
@@ -44,6 +45,7 @@
 		100000000000000000000025 /* PlotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/PlotView.swift; sourceTree = "<group>"; };
 		100000000000000000000026 /* ExpressionTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ExpressionTextView.swift; sourceTree = "<group>"; };
 		100000000000000000000027 /* NaturalMathView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/NaturalMathView.swift; sourceTree = "<group>"; };
+		100000000000000000000042 /* NaturalMathEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/NaturalMathEditing.swift; sourceTree = "<group>"; };
 		100000000000000000000028 /* ResultDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ResultDetailView.swift; sourceTree = "<group>"; };
 		100000000000000000000018 /* CalcoraNative-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CalcoraNative-Bridging-Header.h; sourceTree = "<group>"; };
 		100000000000000000000019 /* aide_cas */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/aide_cas; sourceTree = "<group>"; };
@@ -87,6 +89,7 @@
 				100000000000000000000025 /* PlotView.swift */,
 				100000000000000000000026 /* ExpressionTextView.swift */,
 				100000000000000000000027 /* NaturalMathView.swift */,
+				100000000000000000000042 /* NaturalMathEditing.swift */,
 				100000000000000000000028 /* ResultDetailView.swift */,
 				100000000000000000000018 /* CalcoraNative-Bridging-Header.h */,
 				100000000000000000000019 /* aide_cas */,
@@ -208,6 +211,7 @@
 				100000000000000000000024 /* PlotView.swift in Sources */,
 				100000000000000000000036 /* ExpressionTextView.swift in Sources */,
 				100000000000000000000037 /* NaturalMathView.swift in Sources */,
+				100000000000000000000041 /* NaturalMathEditing.swift in Sources */,
 				100000000000000000000038 /* ResultDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -316,4 +320,5 @@
 	};
 	rootObject = 100000000000000000000050 /* Project object */;
 }
+
 
