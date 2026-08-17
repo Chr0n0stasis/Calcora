@@ -224,7 +224,6 @@ struct CalculatorView: View {
                     Button { showingTerminal = true } label: { Image(systemName: "terminal") }.accessibilityLabel(LocalizedStringKey("CAS Terminal"))
                     Button { showingScript = true } label: { Image(systemName: "doc.text") }.accessibilityLabel(LocalizedStringKey("Script Editor"))
                 }
-            }
                 }
             } // ScrollViewReader
             .sheet(isPresented: $showingHistory) {
@@ -463,5 +462,6 @@ struct CalculatorView: View {
         UIImpactFeedbackGenerator(style: style).impactOccurred()
     }
 }
+
 
 
