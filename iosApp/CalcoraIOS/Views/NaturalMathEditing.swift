@@ -104,25 +104,10 @@ internal enum NaturalMathEditing {
     }
 
     static func moveHorizontally(text: String, cursor: Int, direction: Int) -> NaturalMathEdit {
-        let safeCursor = max(0, min(cursor, text.count))
-        let nextCursor = max(0, min(text.count, safeCursor + direction))
-        
-        guard let root = MathParser.internalParse(text) else {
-            return NaturalMathEdit(text: text, selectionStart: nextCursor)
-        }
-
-        let allExponents = exponents(in: root).sorted { $0.script.range.length < $1.script.range.length }
-        let allFractions = fractions(in: root).sorted { $0.fraction.range.length < $1.fraction.range.length }
-
-        if let exponent = allExponents.first(where: { safeCursor >= $0.visibleStart && safeCursor <= $0.visibleEnd || ($0.grouped && safeCursor == $0.node.end) || (safeCursor == $0.script.end) }) {
-            // Placeholder: Exponent boundary crossing
-        }
-        
-        if let fraction = allFractions.first(where: { safeCursor >= $0.visibleStart && safeCursor <= $0.visibleEnd || ($0.grouped && safeCursor == $0.node.end) || (safeCursor == $0.fraction.end) }) {
-             // Placeholder: Fraction boundary crossing
-        }
-
-        return NaturalMathEdit(text: text, selectionStart: nextCursor)
+        let nextPos = max(0, min(text.count, cursor + direction))
+        // Integrate AST-based navigation logic here
+        return NaturalMathEdit(text: text, selectionStart: nextPos)
     }
 }
+
 

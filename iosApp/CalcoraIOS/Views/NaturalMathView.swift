@@ -604,6 +604,7 @@ private final class Painter {
         result.runs.append(contentsOf: baseLayout.runs.map { run in
             MathRun(string: run.string, font: run.font, color: run.color, frame: run.frame.offsetBy(dx: 0, dy: (supLayout?.height ?? 0) * 0.65))
         })
+        result.boxes.append(contentsOf: baseLayout.boxes.map { box in MathBox(frame: box.frame.offsetBy(dx: 0, dy: (supLayout?.height ?? 0) * 0.65), offset: box.offset) })
         result.carets.append(contentsOf: baseLayout.carets.map { caret in
             MathCaret(offset: caret.offset, x: caret.x, top: caret.top + (supLayout?.height ?? 0) * 0.65, bottom: caret.bottom + (supLayout?.height ?? 0) * 0.65)
         })
