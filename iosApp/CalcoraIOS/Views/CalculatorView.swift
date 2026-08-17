@@ -225,8 +225,8 @@ struct CalculatorView: View {
                     Button { showingScript = true } label: { Image(systemName: "doc.text") }.accessibilityLabel(LocalizedStringKey("Script Editor"))
                 }
             }
-            }
             } // ScrollViewReader
+            }
             .sheet(isPresented: $showingHistory) {
                 HistoryView()
                     .presentationDetents([.medium, .large])
