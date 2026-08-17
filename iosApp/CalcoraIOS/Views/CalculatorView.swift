@@ -44,7 +44,6 @@ struct CalculatorView: View {
         ["1", "2", "3", "+"],
         ["0", ".", ",", "EXE"]
     ]
-
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
@@ -462,6 +461,7 @@ struct CalculatorView: View {
         UIImpactFeedbackGenerator(style: style).impactOccurred()
     }
 }
+
 
 
 

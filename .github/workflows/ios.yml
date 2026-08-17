@@ -42,6 +42,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-xcode-deriveddata-
 
+      - name: Cache external native library builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            third_party/**/*.o
+            third_party/**/*.a
+            giac-2.0.0/src/**/*.o
+            giac-2.0.0/src/**/*.a
+            app/src/main/cpp/**/*.o
+          key: ${{ runner.os }}-native-libs-cache-${{ hashFiles('iosApp/native/build-native.sh', 'app/src/main/cpp/CMakeLists.txt', 'third_party/**/*.h', 'third_party/**/*.c', 'third_party/**/*.cpp', 'giac-2.0.0/**/*.h', 'giac-2.0.0/**/*.cc') }}
+          restore-keys: |
+            ${{ runner.os }}-native-libs-cache-
+
       - name: Prepare Apple build tools
         shell: bash
         run: |
@@ -189,3 +202,4 @@ jobs:
         run: |
           security delete-keychain "$IOS_KEYCHAIN_PATH" || true
           rm -f "$RUNNER_TEMP/calcora-signing.p12" "$RUNNER_TEMP/calcora.mobileprovision"
+
