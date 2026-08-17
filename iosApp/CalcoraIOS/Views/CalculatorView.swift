@@ -48,7 +48,7 @@ struct CalculatorView: View {
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
-            VStack(spacing: 0) {
+                VStack(spacing: 0) {
                 // Expression and Result Area
                 VStack(alignment: .leading, spacing: 0) {
                     if showingDebug {
@@ -225,8 +225,8 @@ struct CalculatorView: View {
                     Button { showingScript = true } label: { Image(systemName: "doc.text") }.accessibilityLabel(LocalizedStringKey("Script Editor"))
                 }
             }
+                }
             } // ScrollViewReader
-            }
             .sheet(isPresented: $showingHistory) {
                 HistoryView()
                     .presentationDetents([.medium, .large])
@@ -463,4 +463,5 @@ struct CalculatorView: View {
         UIImpactFeedbackGenerator(style: style).impactOccurred()
     }
 }
+
 
