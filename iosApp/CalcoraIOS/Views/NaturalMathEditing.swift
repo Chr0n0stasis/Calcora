@@ -12,7 +12,7 @@ struct NaturalMathEdit {
     }
 }
 
-enum NaturalMathEditing {
+internal enum NaturalMathEditing {
     enum SlotRole { case numerator, denominator }
     struct ExponentSlot {
         let node: MathNode
@@ -125,3 +125,4 @@ enum NaturalMathEditing {
         return NaturalMathEdit(text: text, selectionStart: nextCursor)
     }
 }
+

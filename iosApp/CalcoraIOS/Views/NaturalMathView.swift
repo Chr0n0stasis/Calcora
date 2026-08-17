@@ -361,7 +361,7 @@ internal indirect enum MathNode {
     case script(MathNode, MathNode?, MathNode?, NSRange)
     case delimited(String, MathNode, String, NSRange)
     case root(MathNode, NSRange)
-    case integral(MathNode?, MathNode?, MathNode, NSRange)
+    case integral(MathNode?, MathNode?, MathNode, MathNode, NSRange)
     case summation(MathNode?, MathNode?, MathNode, NSRange)
     case derivative(MathNode, MathNode, NSRange)
     case limit(MathNode, MathNode, NSRange)
@@ -377,7 +377,7 @@ internal indirect enum MathNode {
         case .script(_, _, _, let r): return r
         case .delimited(_, _, _, let r): return r
         case .root(_, let r): return r
-        case .integral(_, _, _, let r): return r
+        case .integral(_, _, _, _, let r): return r
         case .summation(_, _, _, let r): return r
         case .derivative(_, _, let r): return r
         case .limit(_, _, let r): return r
@@ -488,8 +488,8 @@ private final class Painter {
             return delimitedLayout(left: left, content: content, right: right, range: range)
         case let .root(content, range):
             return rootLayout(content: content, range: range)
-        case let .integral(lower, upper, body, range):
-            return integralLayout(lower: lower, upper: upper, body: body, range: range)
+        case let .integral(lower, upper, body, variable, range):
+            return integralLayout(lower: lower, upper: upper, body: body, variable: variable, range: range)
         case let .summation(lower, upper, body, range):
             return summationLayout(lower: lower, upper: upper, body: body, range: range)
         case let .derivative(body, variable, range):
@@ -669,9 +669,9 @@ private final class Painter {
         return result
     }
 
-    private func integralLayout(lower: MathNode?, upper: MathNode?, body: MathNode, range: NSRange) -> MathLayout {
+    private func integralLayout(lower: MathNode?, upper: MathNode?, body: MathNode, variable: MathNode, range: NSRange) -> MathLayout {
         let opLayout = largeOperatorLayout(symbol: "∫", lower: lower, upper: upper, body: body, range: range)
-        let dText = textLayout(" dx", range: NSRange(location: range.upperBound, length: 0), scale: 1)
+        let dText = appendRow(textLayout(" d", range: NSRange(location: range.upperBound, length: 0), scale: 1), layout(variable))
         return appendRow(opLayout, dText)
     }
 
@@ -788,7 +788,8 @@ internal enum MathParser {
             let body = call[0]
             let lower = call.count >= 3 ? call[2] : nil
             let upper = call.count >= 4 ? call[3] : nil
-            return .integral(lower.map { parse(source, $0) }, upper.map { parse(source, $0) }, parse(source, body), range)
+            let vrbl = call.count >= 2 ? parse(source, call[1]) : .text("x", NSRange(location: range.upperBound, length: 0))
+            return .integral(lower.map { parse(source, $0) }, upper.map { parse(source, $0) }, parse(source, body), vrbl, range)
         }
         if let call = parseFunctionCall(source, range, name: "sum"), call.count >= 1 {
             let body = call[0]
