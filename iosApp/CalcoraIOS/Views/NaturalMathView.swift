@@ -363,7 +363,7 @@ final class NaturalMathDrawingView: UIView, UITextViewDelegate {
 
 // MARK: - Math node model
 
-private indirect enum MathNode {
+internal indirect enum MathNode {
     case text(String, NSRange)
     case row([MathNode], NSRange)
     case fraction(MathNode, MathNode, NSRange)
@@ -374,6 +374,24 @@ private indirect enum MathNode {
     case summation(MathNode?, MathNode?, MathNode, NSRange)
     case derivative(MathNode, MathNode, NSRange)
     case limit(MathNode, MathNode, NSRange)
+
+    var start: Int { range.location }
+    var end: Int { range.location + range.length }
+
+    var range: NSRange {
+        switch self {
+        case .text(_, let r): return r
+        case .row(_, let r): return r
+        case .fraction(_, _, let r): return r
+        case .script(_, _, _, let r): return r
+        case .delimited(_, _, _, let r): return r
+        case .root(_, let r): return r
+        case .integral(_, _, _, let r): return r
+        case .summation(_, _, _, let r): return r
+        case .derivative(_, _, let r): return r
+        case .limit(_, _, let r): return r
+        }
+    }
 }
 
 // MARK: - Layout primitives

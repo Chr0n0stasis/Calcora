@@ -84,6 +84,7 @@ struct CalculatorView: View {
                         onCommit: { effectiveExpression in
                             store.expression = effectiveExpression
                             store.evaluate()
+                            if store.result?.isPlot == true { DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { withAnimation { proxy.scrollTo("plot_bottom", anchor: .bottom) } } }
                         }
                     )
                         .frame(maxHeight: .infinity)
@@ -125,6 +126,7 @@ struct CalculatorView: View {
                                 compact: true
                             )
                             .frame(height: 110)
+                            .id("plot_bottom")
                             .padding(.horizontal)
                             .padding(.bottom, 12)
                             .contentShape(Rectangle())
@@ -222,6 +224,7 @@ struct CalculatorView: View {
                     Button { showingScript = true } label: { Image(systemName: "doc.text") }.accessibilityLabel(LocalizedStringKey("Script Editor"))
                 }
             }
+            } // ScrollViewReader
             .sheet(isPresented: $showingHistory) {
                 HistoryView()
                     .presentationDetents([.medium, .large])
