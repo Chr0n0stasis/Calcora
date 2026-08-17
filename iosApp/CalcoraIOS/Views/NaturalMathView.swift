@@ -409,7 +409,7 @@ internal struct MathRun {
     }
 }
 
-private struct MathBox {
+internal struct MathBox {
     let frame: CGRect
     let offset: Int
 
@@ -420,7 +420,7 @@ private struct MathBox {
     }
 }
 
-private struct MathLine {
+internal struct MathLine {
     let frame: CGRect
     let color: UIColor
 
@@ -434,7 +434,7 @@ private struct MathLine {
     }
 }
 
-private struct MathCaret {
+internal struct MathCaret {
     let offset: Int
     let x: CGFloat
     let top: CGFloat
@@ -889,6 +889,7 @@ internal enum MathParser {
         return result
     }
 }
+
 
 
 
